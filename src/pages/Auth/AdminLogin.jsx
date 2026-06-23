@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import '../../styles/auth_glass.css';
 import desertImg from '../../assets/desert.jpg';
 
-const Login = () => {
+const AdminLogin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { login, loading } = useAuth();
@@ -14,8 +14,9 @@ const Login = () => {
     e.preventDefault();
     if (!email || !password) return;
     
-    await login(email, password);
-    navigate('/dashboard');
+    // Pass role = 'admin' to the auth context login
+    await login(email, password, 'admin');
+    navigate('/admin');
   };
 
   return (
@@ -23,15 +24,17 @@ const Login = () => {
       <div className="auth-container">
         {/* Left Side: Desert Image */}
         <div className="auth-visual-panel">
-          <img src={desertImg} alt="Private breast health support" className="auth-image" />
+          <img src={desertImg} alt="EmpowerHer Admin Access" className="auth-image" />
         </div>
 
         {/* Right Side: Form */}
         <div className="auth-form-panel">
-          <h2 className="auth-title">Login</h2>
-          <p className="auth-sub" style={{ display: 'none' }}>Access your private breast health support account.</p>
+          <h2 className="auth-title">Admin Login</h2>
+          <p className="auth-sub" style={{ fontSize: '13px', marginTop: '6px', color: 'var(--text-secondary)' }}>
+            Sign in to manage EmpowerHer content, clinic information, and system resources.
+          </p>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} style={{ marginTop: '20px' }}>
             <div className="auth-field">
               <label htmlFor="email">Email</label>
               <div className="auth-field-input-wrap">
@@ -40,7 +43,7 @@ const Login = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  placeholder="admin@empowerher.org"
                   required
                 />
                 <span className="field-icon">
@@ -73,23 +76,16 @@ const Login = () => {
             </div>
 
             <button type="submit" className="auth-btn-pill" disabled={loading} style={{ marginTop: '12px' }}>
-              {loading ? 'Entering...' : 'Login'}
+              {loading ? 'Authenticating...' : 'Sign in as Admin'}
             </button>
           </form>
 
-          <div className="auth-links-row">
-            <Link to="/register">Create an account</Link>
-            <a href="#" onClick={(e) => { e.preventDefault(); alert("Forgot password functionality placeholder"); }}>
-              Forgot password
-            </a>
+          <div className="auth-links-row" style={{ marginTop: '20px' }}>
+            <Link to="/login">Back to user login</Link>
           </div>
 
-          <Link to="/admin/login" className="auth-btn-secondary-outline">
-            Login as Admin
-          </Link>
-
-          <div className="auth-privacy-note">
-            Your self-check records and preferences stay private and are only used to support your breast health journey.
+          <div className="auth-privacy-note" style={{ marginTop: '24px', fontSize: '11px', lineHeight: '1.45', opacity: 0.7 }}>
+            <b>Health & Safety Note:</b> Admin access is for managing educational content and system resources only. EmpowerHer does not provide diagnosis, risk prediction, or medical decision-making.
           </div>
         </div>
       </div>
@@ -97,4 +93,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default AdminLogin;

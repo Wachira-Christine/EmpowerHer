@@ -1,100 +1,126 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import Button from '../../components/common/Button';
+import '../../styles/admin.css';
 
 const AdminDashboard = () => {
   const stats = {
     articles: 5,
-    facilities: 5,
+    facilities: 6,
     feedback: 3
   };
 
-  const userFeedbackList = [
-    { id: 1, user: 'Mary O.', message: 'The Swahili language toggle really helped my grandmother understand the steps!', rating: '⭐⭐⭐⭐⭐' },
-    { id: 2, user: 'Faith K.', message: 'Can you add clinic telephone details for Mombasa County hospitals?', rating: '⭐⭐⭐⭐' }
-  ];
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div className="masthead-row">
-        <div>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '32px', fontWeight: '500' }}>
-            Admin Dashboard 🛠️
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-            Manage database directories, educational posts, and view community feedback.
-          </p>
-        </div>
-        <div className="stamp">Admin Area</div>
-      </div>
-
-      {/* Grid Stats summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-        <div className="card text-center" style={{ padding: '12px', border: '1px solid var(--line)', backgroundColor: 'white' }}>
-          <h3 style={{ fontSize: '24px', fontFamily: 'var(--font-display)', color: 'var(--oxblood)' }}>{stats.articles}</h3>
-          <span className="mono-label" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Articles</span>
-        </div>
-        <div className="card text-center" style={{ padding: '12px', border: '1px solid var(--line)', backgroundColor: 'white' }}>
-          <h3 style={{ fontSize: '24px', fontFamily: 'var(--font-display)', color: 'var(--oxblood)' }}>{stats.facilities}</h3>
-          <span className="mono-label" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Clinics</span>
-        </div>
-        <div className="card text-center" style={{ padding: '12px', border: '1px solid var(--line)', backgroundColor: 'white' }}>
-          <h3 style={{ fontSize: '24px', fontFamily: 'var(--font-display)', color: 'var(--oxblood)' }}>{stats.feedback}</h3>
-          <span className="mono-label" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Feedback</span>
-        </div>
-      </div>
-
-      {/* Admin Modules */}
+      
+      {/* Page Header */}
       <div>
-        <h3 style={{ fontSize: '20px', fontFamily: 'var(--font-display)', fontWeight: '600', marginBottom: '16px' }}>Directory & Content Tools</h3>
-        
-        <div className="zine-grid">
-          <Link to="/admin/education" className="zine-card">
-            <span className="corner" />
-            <span className="no">01</span>
-            <h4>Manage Educational Library</h4>
-            <p>Create, edit, or remove articles on symptoms, risks, and prevention.</p>
-          </Link>
-          <Link to="/admin/facilities" className="zine-card alt">
-            <span className="corner" />
-            <span className="no">02</span>
-            <h4>Manage Screening Facilities</h4>
-            <p>Add or adjust local screening centers, maps, and telephone data.</p>
-          </Link>
+        <p className="eyebrow">Control Panel</p>
+        <h2 className="h1">Admin <em>Dashboard</em></h2>
+        <p className="dek">Manage database directories, educational posts, and view community feedback.</p>
+      </div>
+
+      <div className="notice">
+        <b>Admin Notice</b>
+        Please keep all patient data confidential. Note that PWA health records are stored locally on user devices and are not stored in central databases.
+      </div>
+
+      {/* Grid Stats */}
+      <div className="admin-grid">
+        <div className="admin-card">
+          <span className="corner"></span>
+          <h3>{stats.articles}</h3>
+          <span>Total Articles</span>
+        </div>
+        <div className="admin-card">
+          <span className="corner alt"></span>
+          <h3>{stats.facilities}</h3>
+          <span>Facilities Listed</span>
+        </div>
+        <div className="admin-card">
+          <span className="corner alt2"></span>
+          <h3>{stats.feedback}</h3>
+          <span>Pending Feedback</span>
         </div>
       </div>
 
-      {/* View User Feedback Section */}
-      <div className="card" style={{ border: '1px solid var(--line)', backgroundColor: 'white', padding: '24px', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, width: '14px', height: '14px', backgroundColor: 'var(--mustard)', clipPath: 'polygon(0 0, 100% 0, 0 100%)' }} />
-        
-        <h3 style={{ fontSize: '20px', fontFamily: 'var(--font-display)', fontWeight: '600', marginBottom: '16px', color: 'var(--ink)' }}>
-          💬 Community Feedback
-        </h3>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {userFeedbackList.map((feed) => (
-            <div key={feed.id} style={{
-              padding: '12px',
-              backgroundColor: 'var(--paper)',
-              borderLeft: '2px solid var(--coral)',
-              fontSize: '13px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontFamily: 'var(--font-mono)', fontSize: '11px' }}>
-                <strong>{feed.user}</strong>
-                <span style={{ color: 'var(--coral)' }}>{feed.rating}</span>
-              </div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>"{feed.message}"</p>
-            </div>
-          ))}
-        </div>
+      {/* Tools Section */}
+      <div className="section-head">
+        <h3>Administrative Tools</h3>
+        <div className="rule"></div>
+        <span className="tag">6 modules</span>
       </div>
 
-      <div style={{ marginTop: '16px' }}>
-        <Link to="/dashboard">
-          <Button variant="secondary">Exit Admin Area</Button>
+      {/* Bento Grid */}
+      <div className="bento-grid">
+        
+        <Link to="/admin/content" className="bento-card">
+          <span className="corner"></span>
+          <span className="no">01</span>
+          <div>
+            <h4>Manage Educational Content</h4>
+            <p>Create, edit, or remove educational articles and health resources.</p>
+          </div>
+          <span className="arrow">Edit Library &rarr;</span>
+        </Link>
+
+        <Link to="/admin/self-exam-guide" className="bento-card alt">
+          <span className="corner"></span>
+          <span className="no">02</span>
+          <div>
+            <h4>Manage Self-Exam Guide</h4>
+            <p>Update tutorial steps, media attachments, and instructions for guided checks.</p>
+          </div>
+          <span className="arrow">Configure Guide &rarr;</span>
+        </Link>
+
+        <Link to="/admin/facilities" className="bento-card alt2">
+          <span className="corner"></span>
+          <span className="no">03</span>
+          <div>
+            <h4>Manage Clinic Directory</h4>
+            <p>Update healthcare centers, phone numbers, and services offered.</p>
+          </div>
+          <span className="arrow">Manage Facilities &rarr;</span>
+        </Link>
+
+        <Link to="/admin/feedback" className="bento-card">
+          <span className="corner"></span>
+          <span className="no">04</span>
+          <div>
+            <h4>User Feedback</h4>
+            <p>Review feedback, ratings, and questions submitted by the community.</p>
+          </div>
+          <span className="arrow">Read Feedback &rarr;</span>
+        </Link>
+
+        <Link to="/admin/summary" className="bento-card wide alt">
+          <span className="corner"></span>
+          <span className="no">05</span>
+          <div>
+            <h4>System Summary</h4>
+            <p>View application metrics, total interactions, and diagnostic log placeholders.</p>
+          </div>
+          <span className="arrow">Open Summary &rarr;</span>
+        </Link>
+
+        <Link to="/admin/settings" className="bento-card wide alt2">
+          <span className="corner"></span>
+          <span className="no">06</span>
+          <div>
+            <h4>Admin Settings</h4>
+            <p>Modify local admin password, adjust notification configurations, and manage backup files.</p>
+          </div>
+          <span className="arrow">Configure System &rarr;</span>
+        </Link>
+
+      </div>
+
+      <div className="btn-row">
+        <Link to="/dashboard" className="btn-secondary" style={{ display: 'inline-flex', textDecoration: 'none', alignItems: 'center', justifyContent: 'center' }}>
+          Exit Admin Area
         </Link>
       </div>
+
     </div>
   );
 };

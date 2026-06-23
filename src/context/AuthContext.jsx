@@ -9,12 +9,12 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
 
   // Future Firebase Login implementation placeholder
-  const login = async (email, password) => {
+  const login = async (email, password, role = 'user') => {
     setLoading(true);
     try {
-      console.log('Firebase auth login placeholder called with:', email);
-      // Simulate successful login of a normal user
-      setUser({ email, role: 'user', name: 'Jane Doe' });
+      console.log('Firebase auth login placeholder called with:', email, role);
+      // Simulate successful login of a normal user or admin
+      setUser({ email, role, name: role === 'admin' ? 'Admin Operator' : 'Jane Doe' });
     } catch (error) {
       console.error(error);
     } finally {

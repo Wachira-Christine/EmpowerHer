@@ -1,164 +1,437 @@
 import React, { useState } from 'react';
-import Button from '../components/common/Button';
-import Input from '../components/common/Input';
-import { requestNotificationPermission, scheduleLocalNotification } from '../services/notifications';
+import '../styles/reminders.css';
 
 const Reminders = () => {
+  // Pre-populated placeholder reminders
   const [reminders, setReminders] = useState([
-    { id: 1, type: 'Monthly Check', day: 1, time: '08:00 AM', status: 'Active' },
-    { id: 2, type: 'Awareness Fact Day', day: 15, time: '12:00 PM', status: 'Active' }
+    {
+      id: 1,
+      title: 'Monthly self-check',
+      type: 'Monthly self-check',
+      date: '2026-07-12',
+      time: '20:00',
+      repeat: 'Monthly',
+      note: 'Do this in a private and comfortable place.',
+      notifyPreference: ['In-app'],
+      status: 'Active'
+    },
+    {
+      id: 2,
+      title: 'Clinic follow-up',
+      type: 'Clinic appointment',
+      date: '2026-07-20',
+      time: '10:00',
+      repeat: 'Once',
+      note: 'Visit the health facility for professional consultation.',
+      notifyPreference: ['In-app'],
+      status: 'Active'
+    }
   ]);
 
-  const [day, setDay] = useState(1);
-  const [time, setTime] = useState('08:00');
-  const [notifPermission, setNotifPermission] = useState(
-    'Notification' in window ? Notification.permission : 'denied'
-  );
+  // Form states
+  const [title, setTitle] = useState('');
+  const [type, setType] = useState('Monthly self-check');
+  const [date, setDate] = useState('2026-07-12');
+  const [time, setTime] = useState('20:00');
+  const [repeat, setRepeat] = useState('Monthly');
+  const [note, setNote] = useState('');
+  const [notifyPreference, setNotifyPreference] = useState(['In-app']);
+  const [status, setStatus] = useState('Active');
 
-  const handleRequestPermission = async () => {
-    const status = await requestNotificationPermission();
-    setNotifPermission(status);
+  // Editing state
+  const [editingId, setEditingId] = useState(null);
+
+  // Modal State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [reminderToDelete, setReminderToDelete] = useState(null);
+
+  // Helpers to display date nicely
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const year = parts[0];
+    const monthIndex = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${day} ${months[monthIndex]} ${year}`;
   };
 
-  const handleAddReminder = (e) => {
+  const formatTime = (timeStr) => {
+    if (!timeStr) return '';
+    const parts = timeStr.split(':');
+    if (parts.length < 2) return timeStr;
+    let hour = parseInt(parts[0], 10);
+    const minute = parts[1];
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12;
+    hour = hour ? hour : 12; // the hour '0' should be '12'
+    return `${hour}:${minute} ${ampm}`;
+  };
+
+  // Form handlers
+  const handleSaveReminder = (e) => {
     e.preventDefault();
-    const newRem = {
-      id: Date.now(),
-      type: 'Monthly Check',
-      day: parseInt(day),
-      time: time,
-      status: 'Active'
-    };
+    if (!title.trim()) return;
 
-    setReminders([...reminders, newRem]);
-    
-    if (notifPermission === 'granted') {
-      scheduleLocalNotification('EmpowerHer Reminder Scheduled!', {
-        body: `We will remind you on day ${day} of every month at ${time}.`
+    if (editingId) {
+      // Edit mode
+      const updated = reminders.map((r) => {
+        if (r.id === editingId) {
+          return {
+            ...r,
+            title,
+            type,
+            date,
+            time,
+            repeat,
+            note,
+            notifyPreference,
+            status
+          };
+        }
+        return r;
       });
+      setReminders(updated);
+      setEditingId(null);
+    } else {
+      // Create mode
+      const newReminder = {
+        id: Date.now(),
+        title,
+        type,
+        date,
+        time,
+        repeat,
+        note,
+        notifyPreference,
+        status
+      };
+      setReminders([...reminders, newReminder]);
     }
+
+    // Reset form
+    resetForm();
   };
 
-  const handleDeleteReminder = (id) => {
-    setReminders(reminders.filter(rem => rem.id !== id));
+  const handleEditClick = (reminder) => {
+    setEditingId(reminder.id);
+    setTitle(reminder.title);
+    setType(reminder.type);
+    setDate(reminder.date);
+    setTime(reminder.time);
+    setRepeat(reminder.repeat);
+    setNote(reminder.note);
+    setNotifyPreference(reminder.notifyPreference || []);
+    setStatus(reminder.status);
   };
 
-  const handleToggleReminder = (id) => {
-    setReminders(reminders.map(rem => 
-      rem.id === id ? { ...rem, status: rem.status === 'Active' ? 'Disabled' : 'Active' } : rem
+  const handleToggleStatus = (id) => {
+    setReminders(reminders.map(r => 
+      r.id === id ? { ...r, status: r.status === 'Active' ? 'Off' : 'Active' } : r
     ));
   };
 
+  const handleDeleteTrigger = (reminder) => {
+    setReminderToDelete(reminder);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = () => {
+    if (reminderToDelete) {
+      setReminders(reminders.filter(r => r.id !== reminderToDelete.id));
+      setShowDeleteModal(false);
+      setReminderToDelete(null);
+    }
+  };
+
+  const handleNotifyCheckboxChange = (pref) => {
+    if (notifyPreference.includes(pref)) {
+      setNotifyPreference(notifyPreference.filter(p => p !== pref));
+    } else {
+      setNotifyPreference([...notifyPreference, pref]);
+    }
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setTitle('');
+    setType('Monthly self-check');
+    setDate('2026-07-12');
+    setTime('20:00');
+    setRepeat('Monthly');
+    setNote('');
+    setNotifyPreference(['In-app']);
+    setStatus('Active');
+  };
+
+  // Stats calculation
+  const activeCount = reminders.filter(r => r.status === 'Active').length;
+  
+  // Find next reminder date
+  const activeReminders = reminders.filter(r => r.status === 'Active').sort((a, b) => a.date.localeCompare(b.date));
+  const nextReminderText = activeReminders.length > 0 ? formatDate(activeReminders[0].date) : 'Not set';
+
+  const monthlyCheckReminder = reminders.find(r => r.type === 'Monthly self-check' && r.status === 'Active');
+  const monthlyCheckText = monthlyCheckReminder ? 'Active' : 'Not set';
+
+  const clinicFollowupReminder = reminders.find(r => r.type === 'Clinic appointment' && r.status === 'Active');
+  const clinicFollowupText = clinicFollowupReminder ? 'Active' : 'Not set';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div className="masthead-row">
-        <div>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '32px', fontWeight: '500' }}>
-            Reminders 🔔
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-            One nudge a month, so checking yourself stays a habit, not an afterthought.
-          </p>
-        </div>
-        <div className="stamp">Alert Settings</div>
+      
+      {/* Header */}
+      <div>
+        <p className="eyebrow">Section 05</p>
+        <h2 className="h1">Breast Health <em>Reminders</em></h2>
+        <p className="dek">Set gentle reminders for your monthly self-checks, clinic visits, and follow-up care.</p>
       </div>
 
-      {/* Permissions Helper */}
-      {notifPermission !== 'granted' && (
-        <div style={{
-          backgroundColor: 'var(--paper-deep)',
-          padding: '16px',
-          border: '1px solid var(--line)',
-          borderLeft: '4px solid var(--coral)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
-        }}>
-          <p style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
-            EmpowerHer needs browser permission to send you monthly push alerts.
-          </p>
-          <Button variant="primary" onClick={handleRequestPermission}>Grant Notification Access</Button>
-        </div>
-      )}
+      <div className="notice">
+        <b>About reminders</b>
+        Reminders are here to support your routine. EmpowerHer does not provide diagnosis or medical advice. If you notice unusual changes, please visit a qualified healthcare provider.
+      </div>
 
-      {/* Add Reminder Form */}
-      <form onSubmit={handleAddReminder} className="card d-flex flex-column gap-2" style={{ border: '1px solid var(--line)', backgroundColor: 'white', padding: '24px', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, width: '14px', height: '14px', backgroundColor: 'var(--oxblood)', clipPath: 'polygon(0 0, 100% 0, 0 100%)' }} />
-        
-        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: '600' }}>Schedule Custom Reminder</h3>
-        
-        <div className="form-row-responsive">
-          <Input
-            label="Day of Month (1-31)"
-            type="number"
-            value={day}
-            onChange={(e) => setDay(e.target.value)}
-            placeholder="1"
-            required
-          />
-          <Input
-            label="Time (Daily)"
-            type="time"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            required
-          />
+      {/* Summary Row */}
+      <div className="summary-row">
+        <div className="sum-card">
+          <span className="corner"></span>
+          <p className="label">Active reminders</p>
+          <p className="value">{activeCount}</p>
         </div>
-        
-        <div style={{ marginTop: '8px' }}>
-          <Button type="submit" variant="primary">Add Reminder</Button>
+        <div className="sum-card alt">
+          <span className="corner"></span>
+          <p className="label">Next reminder</p>
+          <p className="value" style={{ fontSize: '17px' }}>{nextReminderText}</p>
         </div>
-      </form>
+        <div className="sum-card alt2">
+          <span className="corner"></span>
+          <p className="label">Monthly self-check</p>
+          <p className="value" style={{ fontSize: '17px' }}>{monthlyCheckText}</p>
+        </div>
+        <div className="sum-card">
+          <span className="corner"></span>
+          <p className="label">Clinic follow-up</p>
+          <p className="value" style={{ fontSize: '17px', opacity: clinicFollowupText === 'Not set' ? 0.55 : 1 }}>{clinicFollowupText}</p>
+        </div>
+      </div>
 
-      {/* Reminders List */}
-      <div>
-        <h3 style={{ fontSize: '20px', fontFamily: 'var(--font-display)', fontWeight: '600', marginBottom: '16px' }}>
-          Your Scheduled Alerts
-        </h3>
+      {/* Layout Split Grid */}
+      <div className="layout">
+        
+        {/* Left Form Panel */}
+        <div>
+          <div className="section-head">
+            <h3>{editingId ? 'Edit' : 'New'}</h3>
+            <div className="rule"></div>
+            <span className="tag">{editingId ? 'Modify reminder' : 'Add reminder'}</span>
+          </div>
 
-        <div className="zine-grid">
+          <div className="form-card">
+            <p className="form-title">{editingId ? 'Modify reminder' : 'Create a reminder'}</p>
+            <p className="form-sub">Set it once — we'll do the remembering.</p>
+            
+            <form onSubmit={handleSaveReminder}>
+              <div className="field">
+                <label>Reminder title</label>
+                <input 
+                  type="text" 
+                  value={title} 
+                  onChange={(e) => setTitle(e.target.value)} 
+                  placeholder="Monthly self-check" 
+                  required 
+                />
+              </div>
+
+              <div className="field">
+                <label>Reminder type</label>
+                <select value={type} onChange={(e) => setType(e.target.value)}>
+                  <option value="Monthly self-check">Monthly self-check</option>
+                  <option value="Clinic appointment">Clinic appointment</option>
+                  <option value="Follow-up">Follow-up</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className="field">
+                <label>Date</label>
+                <input 
+                  type="date" 
+                  value={date} 
+                  onChange={(e) => setDate(e.target.value)} 
+                  required
+                />
+              </div>
+
+              <div className="field">
+                <label>Time</label>
+                <input 
+                  type="time" 
+                  value={time} 
+                  onChange={(e) => setTime(e.target.value)} 
+                  required
+                />
+              </div>
+
+              <div className="field">
+                <label>Repeat</label>
+                <div className="choice-row">
+                  <label className="choice">
+                    <input 
+                      type="radio" 
+                      name="repeat" 
+                      value="Once" 
+                      checked={repeat === 'Once'} 
+                      onChange={(e) => setRepeat(e.target.value)} 
+                    /> Once
+                  </label>
+                  <label className="choice">
+                    <input 
+                      type="radio" 
+                      name="repeat" 
+                      value="Monthly" 
+                      checked={repeat === 'Monthly'} 
+                      onChange={(e) => setRepeat(e.target.value)} 
+                    /> Monthly
+                  </label>
+                  <label className="choice">
+                    <input 
+                      type="radio" 
+                      name="repeat" 
+                      value="Custom" 
+                      checked={repeat === 'Custom'} 
+                      onChange={(e) => setRepeat(e.target.value)} 
+                    /> Custom
+                  </label>
+                </div>
+              </div>
+
+              <div className="field">
+                <label>Note</label>
+                <textarea 
+                  value={note} 
+                  onChange={(e) => setNote(e.target.value)} 
+                  placeholder="Do this in a private and comfortable place."
+                />
+              </div>
+
+              <div className="field">
+                <label>Notify me by</label>
+                <div className="choice-row">
+                  <label className="choice">
+                    <input 
+                      type="checkbox" 
+                      checked={notifyPreference.includes('In-app')} 
+                      onChange={() => handleNotifyCheckboxChange('In-app')} 
+                    /> In-app
+                  </label>
+                  <label className="choice">
+                    <input 
+                      type="checkbox" 
+                      checked={notifyPreference.includes('Phone notification')} 
+                      onChange={() => handleNotifyCheckboxChange('Phone notification')} 
+                    /> Phone notification
+                  </label>
+                  <label className="choice">
+                    <input 
+                      type="checkbox" 
+                      checked={notifyPreference.includes('Email/SMS')} 
+                      onChange={() => handleNotifyCheckboxChange('Email/SMS')} 
+                    /> Email/SMS
+                  </label>
+                </div>
+              </div>
+
+              <div className="field">
+                <label>Status</label>
+                <div className="choice-row">
+                  <label className="choice">
+                    <input 
+                      type="radio" 
+                      name="status" 
+                      value="Active" 
+                      checked={status === 'Active'} 
+                      onChange={(e) => setStatus(e.target.value)} 
+                    /> Active
+                  </label>
+                  <label className="choice">
+                    <input 
+                      type="radio" 
+                      name="status" 
+                      value="Off" 
+                      checked={status === 'Off'} 
+                      onChange={(e) => setStatus(e.target.value)} 
+                    /> Off
+                  </label>
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="submit" className="btn-primary">Save reminder</button>
+                <button type="button" className="btn-ghost" onClick={resetForm}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        {/* Right List Panel */}
+        <div>
+          <div className="section-head">
+            <h3>Your reminders</h3>
+            <div className="rule"></div>
+            <span className="tag">{reminders.length} total</span>
+          </div>
+
           {reminders.length === 0 ? (
-            <div className="zine-card">
-              <p style={{ color: 'var(--text-muted)' }}>No reminders set yet.</p>
+            <div className="empty">
+              <h3>No reminders yet.</h3>
+              <p>Set a reminder to help make breast self-checks part of your routine.</p>
+              <button className="btn-primary" onClick={resetForm}>Create reminder</button>
             </div>
           ) : (
             reminders.map((rem, idx) => (
-              <div key={rem.id} className={`zine-card ${idx % 3 === 1 ? 'alt' : idx % 3 === 2 ? 'alt2' : ''}`}>
-                <span className="corner" />
-                <span className="no">Alert #{idx + 1}</span>
-                
-                <span className="mono-label" style={{ color: 'var(--coral)', display: 'block', marginBottom: '4px' }}>
-                  {rem.type}
-                </span>
-                
-                <h4 style={{ fontSize: '18px', fontFamily: 'var(--font-display)', fontWeight: '600' }}>Day {rem.day} at {rem.time}</h4>
-                
-                <div className="d-flex justify-between align-center mt-2">
-                  <span className={`badge ${rem.status === 'Active' ? 'badge-success' : 'badge-warning'}`} style={{ fontFamily: 'var(--font-mono)', fontSize: '10px' }}>
+              <div key={rem.id} className={`rem-card ${idx % 2 === 1 ? 'alt' : ''}`}>
+                <span className="corner"></span>
+                <div className="rem-top">
+                  <p className="rem-title">{rem.title}</p>
+                  <span className={`status-pill ${rem.status === 'Off' ? 'off' : ''}`}>
                     {rem.status}
                   </span>
-                  
-                  <div className="d-flex gap-2">
-                    <button
-                      onClick={() => handleToggleReminder(rem.id)}
-                      style={{ color: 'var(--oxblood)', fontWeight: '600', fontSize: '11px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', cursor: 'pointer', background: 'none', border: 'none' }}
-                    >
-                      {rem.status === 'Active' ? 'Disable' : 'Enable'}
-                    </button>
-                    <span style={{ color: 'var(--line)' }}>|</span>
-                    <button
-                      onClick={() => handleDeleteReminder(rem.id)}
-                      style={{ color: 'var(--coral)', fontWeight: '600', fontSize: '11px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', cursor: 'pointer', background: 'none', border: 'none' }}
-                    >
-                      Delete
-                    </button>
-                  </div>
+                </div>
+                <div className="rem-meta">
+                  <span>{rem.type}</span>
+                  <span>{formatDate(rem.date)}, {formatTime(rem.time)}</span>
+                  <span>Repeats {rem.repeat.toLowerCase()}</span>
+                </div>
+                <p className="rem-note">{rem.note}</p>
+                
+                <div className="rem-actions">
+                  <button className="btn-mini primary" onClick={() => handleEditClick(rem)}>Edit</button>
+                  <button className="btn-mini" onClick={() => handleToggleStatus(rem.id)}>
+                    {rem.status === 'Active' ? 'Disable' : 'Enable'}
+                  </button>
+                  <button className="btn-mini danger" onClick={() => handleDeleteTrigger(rem)}>Delete</button>
                 </div>
               </div>
             ))
           )}
         </div>
+
       </div>
+
+      {/* ============ DELETE CONFIRMATION MODAL ============ */}
+      <div className={`modal-overlay ${showDeleteModal ? 'show' : ''}`}>
+        <div className="modal">
+          <h4>Delete this reminder?</h4>
+          <p>This reminder will be removed from your list. You can create a new one anytime.</p>
+          <div className="modal-actions">
+            <button className="btn-ghost" onClick={() => setShowDeleteModal(false)}>Cancel</button>
+            <button className="btn-mini danger" style={{ padding: '13px' }} onClick={confirmDelete}>Delete reminder</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 };

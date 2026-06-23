@@ -224,3 +224,29 @@
     width: 100%;
   }
 }
+
+.auth-btn-secondary-outline {
+  width: 100%;
+  background: transparent;
+  color: var(--oxblood);
+  border: 1.5px solid var(--oxblood);
+  font-family: var(--font-mono), monospace;
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 11px 24px;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  margin-top: 14px;
+}
+
+.auth-btn-secondary-outline:hover {
+  background-color: var(--paper-deep);
+  color: var(--oxblood-deep);
+  border-color: var(--oxblood-deep);
+}

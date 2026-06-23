@@ -1,0 +1,285 @@
+/* Self-Examination Page Specific Styling */
+
+.self-progress-wrap {
+  margin-bottom: 6px;
+}
+.self-progress-label {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--oxblood);
+  margin-bottom: 8px;
+}
+.self-progress-track {
+  height: 6px;
+  background: var(--paper-deep);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 32px;
+}
+.self-progress-fill {
+  height: 100%;
+  background: var(--coral);
+  transition: width 0.3s ease;
+}
+
+/* timeline steps */
+.self-timeline {
+  position: relative;
+}
+.self-timeline::before {
+  content: "";
+  position: absolute;
+  left: 23px;
+  top: 8px;
+  bottom: 8px;
+  width: 1.5px;
+  background: var(--line);
+}
+.self-step {
+  position: relative;
+  display: flex;
+  gap: 18px;
+  margin-bottom: 26px;
+}
+.self-step .self-no-circle {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--oxblood);
+  color: var(--rose);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display), serif;
+  font-weight: 600;
+  font-size: 17px;
+  z-index: 1;
+}
+.self-step-card {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 18px 20px;
+  position: relative;
+  background: var(--paper);
+}
+.self-step-card .corner {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  background: var(--mustard);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+.self-step-card.alt .corner {
+  background: var(--coral);
+}
+.self-step-card.alt2 .corner {
+  background: var(--oxblood);
+}
+.self-step-card .tag-small {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: .08em;
+  color: var(--coral);
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+.self-step-card h4 {
+  font-family: var(--font-display), serif;
+  font-weight: 600;
+  font-size: 17px;
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+.self-step-card p {
+  font-size: 14.5px;
+  line-height: 1.6;
+  opacity: .72;
+  margin: 0;
+  color: var(--ink);
+}
+.self-step-card .icon-ph {
+  width: 100%;
+  height: 80px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  opacity: .4;
+}
+
+.self-guide-cta {
+  text-align: center;
+  margin: 34px 0 10px;
+}
+
+/* ---- FORM ---- */
+.self-form-card {
+  border: 1px solid var(--line);
+  padding: 30px 30px 10px;
+  margin-bottom: 30px;
+  background-color: var(--paper);
+}
+.self-form-title {
+  font-family: var(--font-display), serif;
+  font-weight: 600;
+  font-size: 22px;
+  margin: 0 0 6px;
+  color: var(--ink);
+}
+.self-form-sub {
+  font-size: 13.5px;
+  opacity: .6;
+  margin: 0 0 28px;
+  color: var(--ink);
+}
+
+.self-field {
+  margin-bottom: 22px;
+}
+.self-field label {
+  display: block;
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--oxblood-deep);
+  margin-bottom: 9px;
+}
+.self-field input[type="date"], .self-field textarea {
+  width: 100%;
+  border: none;
+  border-bottom: 1.5px solid var(--line);
+  background: transparent;
+  font-family: var(--font-body), sans-serif;
+  font-size: 15.5px;
+  padding: 9px 2px;
+  color: var(--ink);
+  outline: none;
+}
+.self-field input:focus, .self-field textarea:focus {
+  border-bottom-color: var(--coral);
+}
+.self-field textarea {
+  resize: vertical;
+  min-height: 70px;
+  font-family: var(--font-body), sans-serif;
+}
+
+.self-choice-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.self-choice {
+  border: 1.5px solid var(--line);
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+}
+.self-choice input {
+  accent-color: var(--coral);
+}
+.self-choice.active {
+  border-color: var(--coral);
+  background: var(--paper-deep);
+}
+
+.self-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.self-checklist label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 14.5px;
+  line-height: 1.4;
+  color: var(--ink);
+  cursor: pointer;
+}
+.self-checklist input {
+  margin-top: 3px;
+  accent-color: var(--coral);
+}
+
+.self-support-msg {
+  display: none;
+  background: var(--paper-deep);
+  border-left: 3px solid var(--mustard);
+  padding: 14px 16px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  margin-top: 14px;
+  color: var(--ink);
+}
+.self-support-msg.show {
+  display: block;
+}
+
+.self-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 24px 0 28px;
+}
+.self-form-actions .btn {
+  flex: 1;
+  min-width: 200px;
+  text-align: center;
+}
+
+.self-flow-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  opacity: .55;
+  margin-top: -8px;
+  margin-bottom: 28px;
+  color: var(--ink);
+}
+.self-flow-note .arrow {
+  font-family: var(--font-mono), monospace;
+  color: var(--coral);
+}
+
+@media (max-width: 880px) {
+  .self-timeline::before {
+    left: 18px;
+  }
+  .self-step {
+    gap: 12px;
+  }
+  .self-step .self-no-circle {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+  }
+  .self-form-card {
+    padding: 22px 18px 6px;
+  }
+  .self-form-actions {
+    flex-direction: column;
+  }
+  .self-form-actions .btn {
+    width: 100%;
+  }
+}
