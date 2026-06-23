@@ -273,12 +273,10 @@ const SelfExam = () => {
         <div className="video-tutorial-card">
           <span className="self-progress-label">Video Demonstration</span>
           <div className="video-embed-wrapper">
-            <iframe 
-              src="https://www.youtube.com/embed/-ygucOBbKJA" 
-              title="Breast Self-Examination Demonstration" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-              allowFullScreen
-            ></iframe>
+            <video className="self-check-video" controls preload="metadata">
+              <source src="/videos/self-check-video.mp4" type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
           </div>
           <span className="video-note">Note: Video demonstration is for breast health awareness and education only.</span>
         </div>

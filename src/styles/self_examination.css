@@ -62,7 +62,8 @@
   background: #000;
   margin: 16px 0 10px;
 }
-.video-embed-wrapper iframe {
+.video-embed-wrapper iframe,
+.video-embed-wrapper video {
   position: absolute;
   top: 0;
   left: 0;

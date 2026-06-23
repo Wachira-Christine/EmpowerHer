@@ -39,6 +39,10 @@ self.addEventListener('fetch', (event) => {
   // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
+  const requestUrl = new URL(event.request.url);
+  // Only cache same-origin app assets (avoid caching external fonts or Firebase/Firestore calls)
+  if (requestUrl.origin !== self.location.origin) return;
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -55,8 +59,14 @@ self.addEventListener('fetch', (event) => {
           });
           return networkResponse;
         })
-        .catch(() => {
-          // Fallback offline responses can be implemented here
+        .catch((error) => {
+          console.error('[Service Worker] Fetch failed for:', event.request.url, error);
+          // Return a valid fallback Response instead of undefined to prevent TypeError
+          return new Response('Network error occurred. Asset not cached.', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: new Headers({ 'Content-Type': 'text/plain' })
+          });
         });
     })
   );
