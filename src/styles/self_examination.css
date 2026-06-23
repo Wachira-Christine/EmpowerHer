@@ -1,7 +1,107 @@
 /* Self-Examination Page Specific Styling */
 
+/* Flow Indicator Timeline */
+.flow-indicators {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 24px 0 32px;
+  background: var(--paper-deep);
+  border: 1px solid var(--line);
+  padding: 14px 20px;
+  border-radius: 0;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.flow-indicator-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink);
+  opacity: 0.5;
+}
+.flow-indicator-step.active {
+  opacity: 1;
+  color: var(--oxblood);
+  font-weight: 600;
+}
+.flow-indicator-step.completed {
+  opacity: 0.8;
+  color: var(--coral);
+}
+.flow-indicator-sep {
+  font-family: var(--font-mono), monospace;
+  color: var(--line);
+  font-size: 12px;
+}
+
+/* Video Grid Layout */
+.video-tutorial-container {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 24px;
+  margin-bottom: 40px;
+}
+.video-tutorial-card {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+.video-embed-wrapper {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 */
+  height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #000;
+  margin: 16px 0 10px;
+}
+.video-embed-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.video-note {
+  font-size: 11.5px;
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.before-you-begin-card {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.before-you-begin-card h4 {
+  font-family: var(--font-display), serif;
+  font-weight: 600;
+  font-size: 19px;
+  color: var(--oxblood);
+  margin: 0 0 12px;
+}
+.before-you-begin-card p {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  opacity: 0.8;
+  margin: 0 0 20px;
+}
+
+/* Step-by-Step Card Slider */
 .self-progress-wrap {
-  margin-bottom: 6px;
+  margin: 32px 0 16px;
 }
 .self-progress-label {
   font-family: var(--font-mono), monospace;
@@ -10,13 +110,14 @@
   text-transform: uppercase;
   color: var(--oxblood);
   margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
 }
 .self-progress-track {
   height: 6px;
   background: var(--paper-deep);
   border-radius: 4px;
   overflow: hidden;
-  margin-bottom: 32px;
 }
 .self-progress-fill {
   height: 100%;
@@ -24,49 +125,18 @@
   transition: width 0.3s ease;
 }
 
-/* timeline steps */
-.self-timeline {
-  position: relative;
-}
-.self-timeline::before {
-  content: "";
-  position: absolute;
-  left: 23px;
-  top: 8px;
-  bottom: 8px;
-  width: 1.5px;
-  background: var(--line);
-}
-.self-step {
-  position: relative;
-  display: flex;
-  gap: 18px;
-  margin-bottom: 26px;
-}
-.self-step .self-no-circle {
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  background: var(--oxblood);
-  color: var(--rose);
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-display), serif;
-  font-weight: 600;
-  font-size: 17px;
-  z-index: 1;
-}
-.self-step-card {
-  flex: 1;
+.guided-steps-card {
   border: 1px solid var(--line);
-  border-radius: 0;
-  padding: 18px 20px;
-  position: relative;
   background: var(--paper);
+  padding: 32px;
+  position: relative;
+  max-width: 780px;
+  margin: 0 auto 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
-.self-step-card .corner {
+.guided-steps-card .corner {
   position: absolute;
   left: 0;
   top: 0;
@@ -75,40 +145,18 @@
   background: var(--mustard);
   clip-path: polygon(0 0, 100% 0, 0 100%);
 }
-.self-step-card.alt .corner {
+.guided-steps-card.alt .corner {
   background: var(--coral);
 }
-.self-step-card.alt2 .corner {
+.guided-steps-card.alt2 .corner {
   background: var(--oxblood);
 }
-.self-step-card .tag-small {
-  font-family: var(--font-mono), monospace;
-  font-size: 10px;
-  letter-spacing: .08em;
-  color: var(--coral);
-  text-transform: uppercase;
-  margin: 0 0 6px;
-}
-.self-step-card h4 {
-  font-family: var(--font-display), serif;
-  font-weight: 600;
-  font-size: 17px;
-  margin: 0 0 8px;
-  color: var(--ink);
-}
-.self-step-card p {
-  font-size: 14.5px;
-  line-height: 1.6;
-  opacity: .72;
-  margin: 0;
-  color: var(--ink);
-}
-.self-step-card .icon-ph {
+
+.step-illustration-box {
   width: 100%;
-  height: 80px;
+  height: 160px;
   border: 1px dashed var(--line);
-  border-radius: 8px;
-  margin-top: 12px;
+  background: var(--paper-deep);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -117,46 +165,64 @@
   letter-spacing: .06em;
   text-transform: uppercase;
   color: var(--ink);
-  opacity: .4;
+  opacity: .5;
 }
 
-.self-guide-cta {
-  text-align: center;
-  margin: 34px 0 10px;
+.guided-steps-card h4 {
+  font-family: var(--font-display), serif;
+  font-weight: 600;
+  font-size: 21px;
+  margin: 0 0 6px;
+  color: var(--oxblood);
+}
+.guided-steps-card p.step-desc {
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: var(--ink);
+  opacity: .85;
+  margin: 0;
+}
+
+.step-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  gap: 16px;
 }
 
 /* ---- FORM ---- */
 .self-form-card {
   border: 1px solid var(--line);
-  padding: 30px 30px 10px;
-  margin-bottom: 30px;
+  padding: 40px;
+  margin-bottom: 48px;
   background-color: var(--paper);
 }
 .self-form-title {
   font-family: var(--font-display), serif;
   font-weight: 600;
-  font-size: 22px;
+  font-size: 24px;
   margin: 0 0 6px;
-  color: var(--ink);
+  color: var(--oxblood);
 }
 .self-form-sub {
-  font-size: 13.5px;
-  opacity: .6;
-  margin: 0 0 28px;
+  font-size: 14px;
+  opacity: .65;
+  margin: 0 0 32px;
   color: var(--ink);
 }
 
 .self-field {
-  margin-bottom: 22px;
+  margin-bottom: 24px;
 }
 .self-field label {
   display: block;
   font-family: var(--font-mono), monospace;
-  font-size: 10.5px;
+  font-size: 11px;
   letter-spacing: .08em;
   text-transform: uppercase;
-  color: var(--oxblood-deep);
-  margin-bottom: 9px;
+  color: var(--oxblood);
+  margin-bottom: 10px;
 }
 .self-field input[type="date"], .self-field textarea {
   width: 100%;
@@ -174,24 +240,25 @@
 }
 .self-field textarea {
   resize: vertical;
-  min-height: 70px;
-  font-family: var(--font-body), sans-serif;
+  min-height: 80px;
 }
 
 .self-choice-row {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 .self-choice {
   border: 1.5px solid var(--line);
-  padding: 10px 16px;
-  font-size: 14px;
+  padding: 10px 20px;
+  font-size: 14.5px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--ink);
+  background: var(--paper);
+  transition: all 0.2s ease;
 }
 .self-choice input {
   accent-color: var(--coral);
@@ -199,18 +266,24 @@
 .self-choice.active {
   border-color: var(--coral);
   background: var(--paper-deep);
+  font-weight: 600;
 }
 
 .self-checklist {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 600px) {
+  .self-checklist {
+    grid-template-columns: 1fr;
+  }
 }
 .self-checklist label {
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  font-size: 14.5px;
+  font-size: 14px;
   line-height: 1.4;
   color: var(--ink);
   cursor: pointer;
@@ -222,13 +295,14 @@
 
 .self-support-msg {
   display: none;
-  background: var(--paper-deep);
-  border-left: 3px solid var(--mustard);
-  padding: 14px 16px;
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  border-left: 4px solid var(--oxblood);
+  padding: 14px 18px;
   font-size: 13.5px;
   line-height: 1.6;
-  margin-top: 14px;
-  color: var(--ink);
+  margin-top: 16px;
+  color: var(--oxblood);
 }
 .self-support-msg.show {
   display: block;
@@ -237,10 +311,10 @@
 .self-form-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  padding: 24px 0 28px;
+  gap: 16px;
+  padding: 24px 0 16px;
 }
-.self-form-actions .btn {
+.self-form-actions button, .self-form-actions a {
   flex: 1;
   min-width: 200px;
   text-align: center;
@@ -250,10 +324,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 12.5px;
-  opacity: .55;
-  margin-top: -8px;
-  margin-bottom: 28px;
+  font-size: 13px;
+  opacity: .7;
+  margin-bottom: 24px;
   color: var(--ink);
 }
 .self-flow-note .arrow {
@@ -261,25 +334,47 @@
   color: var(--coral);
 }
 
+/* Post-Save Success Card */
+.self-success-card {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  padding: 40px;
+  text-align: center;
+  max-width: 600px;
+  margin: 40px auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+.self-success-card h3 {
+  font-family: var(--font-display), serif;
+  font-weight: 600;
+  font-size: 24px;
+  color: var(--oxblood);
+  margin: 0;
+}
+.self-success-card p {
+  font-size: 15px;
+  line-height: 1.6;
+  opacity: 0.8;
+  margin: 0 0 12px;
+}
+
 @media (max-width: 880px) {
-  .self-timeline::before {
-    left: 18px;
+  .video-tutorial-container {
+    grid-template-columns: 1fr;
   }
-  .self-step {
-    gap: 12px;
-  }
-  .self-step .self-no-circle {
-    width: 36px;
-    height: 36px;
-    font-size: 15px;
+  .guided-steps-card {
+    padding: 20px;
   }
   .self-form-card {
-    padding: 22px 18px 6px;
+    padding: 24px 20px;
   }
   .self-form-actions {
     flex-direction: column;
   }
-  .self-form-actions .btn {
+  .self-form-actions button, .self-form-actions a {
     width: 100%;
   }
 }

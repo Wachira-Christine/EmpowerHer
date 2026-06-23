@@ -1,58 +1,22 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { 
+  getSelfCheckRecords, 
+  updateSelfCheckRecord, 
+  deleteSelfCheckRecord 
+} from '../services/selfCheckService';
 import '../styles/records.css';
 
 const Records = () => {
-  const navigate = useNavigate();
+  const navigate = useRef(useNavigate()).current;
+  const { user } = useAuth();
 
-  // Initial placeholder records
-  const [records, setRecords] = useState([
-    {
-      id: 1,
-      date: '2026-06-12',
-      completed: 'Yes',
-      sideChecked: 'Both',
-      feltNormal: 'Yes',
-      changes: ['No unusual change noticed'],
-      notes: 'No unusual change noticed.',
-      reminder: 'Yes',
-      savedDate: '2026-06-12, 8:15 AM'
-    },
-    {
-      id: 2,
-      date: '2026-05-12',
-      completed: 'Yes',
-      sideChecked: 'Left breast',
-      feltNormal: 'No',
-      changes: ['Breast pain'],
-      notes: 'Slight pain near upper breast area.',
-      reminder: 'Yes',
-      savedDate: '2026-05-12, 7:42 PM'
-    },
-    {
-      id: 3,
-      date: '2026-04-12',
-      completed: 'Yes',
-      sideChecked: 'Both',
-      feltNormal: 'Yes',
-      changes: ['No unusual change noticed'],
-      notes: 'Everything felt normal.',
-      reminder: 'Yes',
-      savedDate: '2026-04-12, 9:30 AM'
-    },
-    {
-      id: 4,
-      date: '2026-03-12',
-      completed: 'Yes',
-      sideChecked: 'Right breast',
-      feltNormal: 'Yes',
-      changes: ['No unusual change noticed'],
-      notes: 'Everything felt the same.',
-      reminder: 'Yes',
-      savedDate: '2026-03-12, 10:15 AM'
-    }
-  ]);
-
+  // State Management
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
+  
   // Views: 'list' | 'detail' | 'edit' | 'empty'
   const [view, setView] = useState('list');
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -65,10 +29,12 @@ const Records = () => {
   const [editChanges, setEditChanges] = useState([]);
   const [editNotes, setEditNotes] = useState('');
   const [editReminder, setEditReminder] = useState('Yes');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Delete Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState(null);
+  const [deletingRecord, setDeletingRecord] = useState(false);
 
   // Available changes list
   const changesList = [
@@ -82,6 +48,31 @@ const Records = () => {
     'Change in breast shape or size',
     'Other'
   ];
+
+  // Fetch records on mount or when user changes
+  useEffect(() => {
+    const fetchRecords = async () => {
+      if (!user) return;
+      try {
+        setLoading(true);
+        setErrorMsg('');
+        const data = await getSelfCheckRecords(user.uid);
+        setRecords(data);
+        if (data.length === 0) {
+          setView('empty');
+        } else {
+          setView('list');
+        }
+      } catch (err) {
+        console.error("Failed to load records:", err);
+        setErrorMsg("Failed to retrieve your history log. Please reload the page.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRecords();
+  }, [user]);
 
   // Formatting date helper
   const formatDateString = (dateStr) => {
@@ -115,12 +106,12 @@ const Records = () => {
   const handleStartEdit = (record) => {
     setSelectedRecord(record);
     setEditDate(record.date);
-    setEditCompleted(record.completed);
+    setEditCompleted(record.completedGuide || 'Yes');
     setEditSideChecked(record.sideChecked);
     setEditFeltNormal(record.feltNormal);
-    setEditChanges(record.changes || []);
+    setEditChanges(record.changesNoticed || []);
     setEditNotes(record.notes);
-    setEditReminder(record.reminder);
+    setEditReminder(record.reminderRequested || 'Yes');
     setView('edit');
   };
 
@@ -144,29 +135,47 @@ const Records = () => {
   };
 
   // Save edit handler
-  const handleSaveChanges = (e) => {
+  const handleSaveChanges = async (e) => {
     e.preventDefault();
-    const updatedRecords = records.map((rec) => {
-      if (rec.id === selectedRecord.id) {
-        return {
-          ...rec,
-          date: editDate,
-          completed: editCompleted,
-          sideChecked: editSideChecked,
-          feltNormal: editFeltNormal,
-          changes: editChanges.length > 0 ? editChanges : ['No unusual change noticed'],
-          notes: editNotes,
-          reminder: editReminder
-        };
-      }
-      return rec;
-    });
+    if (!selectedRecord) return;
+    setSavingEdit(true);
+    setErrorMsg('');
 
-    setRecords(updatedRecords);
-    // Find the updated record to keep in detail view
-    const nextDetail = updatedRecords.find(r => r.id === selectedRecord.id);
-    setSelectedRecord(nextDetail);
-    setView('detail');
+    try {
+      const updatedData = {
+        date: editDate,
+        completedGuide: editCompleted,
+        sideChecked: editSideChecked,
+        feltNormal: editFeltNormal,
+        changesNoticed: editChanges.length > 0 ? editChanges : ['No unusual change noticed'],
+        notes: editNotes,
+        reminderRequested: editReminder
+      };
+
+      await updateSelfCheckRecord(selectedRecord.id, updatedData);
+
+      // Update state locally
+      const updatedRecords = records.map((rec) => {
+        if (rec.id === selectedRecord.id) {
+          return {
+            ...rec,
+            ...updatedData,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return rec;
+      });
+      setRecords(updatedRecords);
+
+      const nextDetail = updatedRecords.find(r => r.id === selectedRecord.id);
+      setSelectedRecord(nextDetail);
+      setView('detail');
+    } catch (err) {
+      console.error("Failed to update record:", err);
+      setErrorMsg("Failed to save changes. Please try again.");
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   // Delete modal triggers
@@ -175,8 +184,13 @@ const Records = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    if (recordToDelete) {
+  const confirmDelete = async () => {
+    if (!recordToDelete) return;
+    setDeletingRecord(true);
+    setErrorMsg('');
+
+    try {
+      await deleteSelfCheckRecord(recordToDelete.id);
       const remaining = records.filter(r => r.id !== recordToDelete.id);
       setRecords(remaining);
       setShowDeleteModal(false);
@@ -186,14 +200,37 @@ const Records = () => {
       } else {
         setView('list');
       }
+    } catch (err) {
+      console.error("Failed to delete record:", err);
+      setErrorMsg("Failed to delete the self-check record. Please try again.");
+      setShowDeleteModal(false);
+    } finally {
+      setDeletingRecord(false);
     }
   };
 
-  // Calculated placeholders or stats
+  // Calculated Stats
   const totalRecords = records.length;
   const lastCheck = records.length > 0 ? formatShortDate(records[0].date) : 'N/A';
   const nextReminder = records.length > 0 ? '12 Jul 2026' : 'N/A';
   const changesCount = records.filter(r => r.feltNormal === 'No' || r.feltNormal === 'Not sure').length;
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '60vh',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        fontFamily: 'var(--font-mono)',
+        color: 'var(--oxblood)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em'
+      }}>
+        Loading your history log...
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -205,18 +242,34 @@ const Records = () => {
         <p className="dek">Review your past self-check records and keep track of what is normal for your body.</p>
       </div>
 
+      {errorMsg && (
+        <div style={{
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.2)',
+          color: 'var(--oxblood)',
+          padding: '10px',
+          borderRadius: '6px',
+          fontSize: '13px',
+          textAlign: 'left'
+        }}>
+          {errorMsg}
+        </div>
+      )}
+
       <div className="notice">
         <b>About this page</b>
         Your history helps you remember what you noticed during each self-check. It does not diagnose breast cancer. If you notice unusual changes or feel worried, please visit a qualified healthcare provider.
       </div>
 
-      {/* Demo State Switcher (as requested to follow the template's switch bar) */}
-      <div className="view-switch">
-        <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>List view</button>
-        <button className={view === 'detail' ? 'on' : ''} onClick={() => { if (records.length > 0) { setSelectedRecord(records[0]); setView('detail'); } }}>Record details</button>
-        <button className={view === 'edit' ? 'on' : ''} onClick={() => { if (records.length > 0) { handleStartEdit(records[0]); } }}>Edit record</button>
-        <button className={view === 'empty' ? 'on' : ''} onClick={() => setView('empty')}>Empty state</button>
-      </div>
+      {/* Demo State Switcher (Optional Navigation Shortcuts) */}
+      {records.length > 0 && (
+        <div className="view-switch">
+          <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>List view</button>
+          <button className={view === 'detail' ? 'on' : ''} onClick={() => { if (records.length > 0) { setSelectedRecord(records[0]); setView('detail'); } }}>Record details</button>
+          <button className={view === 'edit' ? 'on' : ''} onClick={() => { if (records.length > 0) { handleStartEdit(records[0]); } }}>Edit record</button>
+          <button className={view === 'empty' ? 'on' : ''} onClick={() => setView('empty')}>Empty state</button>
+        </div>
+      )}
 
       {/* ============ LIST VIEW ============ */}
       {view === 'list' && (
@@ -261,7 +314,7 @@ const Records = () => {
                   <span className="corner"></span>
                   <div className="record-top">
                     <p className="record-date">{formatDateString(rec.date)}</p>
-                    <span className="status-pill">{rec.completed === 'Yes' ? 'Completed' : 'Incomplete'}</span>
+                    <span className="status-pill">{rec.completedGuide === 'Yes' ? 'Completed' : 'Incomplete'}</span>
                   </div>
                   <div className="meta-row">
                     <span>Checked: {rec.sideChecked}</span>
@@ -271,7 +324,7 @@ const Records = () => {
                     {rec.feltNormal === 'Yes' ? 'Normal for me' : rec.feltNormal === 'No' ? 'Change noticed' : 'Not sure'}
                   </span>
                   
-                  <p className="notes">{rec.notes}</p>
+                  <p className="notes">{rec.notes || 'No notes added.'}</p>
                   
                   {hasChanges && (
                     <p className="support-tag">Consider speaking to a healthcare provider.</p>
@@ -306,7 +359,7 @@ const Records = () => {
             </div>
             <div className="detail-row">
               <span className="k">Guide completed</span>
-              <span className="v">{selectedRecord.completed}</span>
+              <span className="v">{selectedRecord.completedGuide || 'Yes'}</span>
             </div>
             <div className="detail-row">
               <span className="k">Side checked</span>
@@ -318,24 +371,26 @@ const Records = () => {
             </div>
             <div className="detail-row">
               <span className="k">Changes selected</span>
-              <span className="v">{(selectedRecord.changes || []).join(', ')}</span>
+              <span className="v">{(selectedRecord.changesNoticed || []).join(', ')}</span>
             </div>
             <div className="detail-row">
               <span className="k">Notes</span>
-              <span className="v">{selectedRecord.notes}</span>
+              <span className="v">{selectedRecord.notes || 'No notes added.'}</span>
             </div>
             <div className="detail-row">
               <span className="k">Reminder set</span>
-              <span className="v">{selectedRecord.reminder === 'Yes' ? 'Yes — 12 Jul 2026' : 'No'}</span>
+              <span className="v">{selectedRecord.reminderRequested === 'Yes' ? 'Yes' : 'No'}</span>
             </div>
             <div className="detail-row">
               <span className="k">Saved on</span>
-              <span className="v">{selectedRecord.savedDate || `${formatDateString(selectedRecord.date)}, 12:00 PM`}</span>
+              <span className="v">{selectedRecord.createdAt ? formatDateString(selectedRecord.createdAt.split('T')[0]) : formatDateString(selectedRecord.date)}</span>
             </div>
 
-            <div className="detail-support">
-              Some changes are not cancer, but it is important to have unusual changes checked by a healthcare provider.
-            </div>
+            {(selectedRecord.feltNormal === 'No' || selectedRecord.feltNormal === 'Not sure' || selectedRecord.changesNoticed?.some(c => c !== 'No unusual change noticed')) && (
+              <div className="detail-support">
+                Some changes are not cancer, but it is important to have unusual changes checked by a healthcare provider.
+              </div>
+            )}
 
             <div className="detail-actions">
               <button className="btn-primary" onClick={() => handleStartEdit(selectedRecord)}>Edit record</button>
@@ -367,28 +422,29 @@ const Records = () => {
                   type="date" 
                   value={editDate} 
                   onChange={(e) => setEditDate(e.target.value)} 
+                  required
                 />
               </div>
 
               <div className="field">
                 <label>Did you complete the guided self-examination?</label>
                 <div className="choice-row">
-                  <label className="choice">
+                  <label className={`choice ${editCompleted === 'Yes' ? 'active' : ''}`}>
                     <input 
                       type="radio" 
-                      name="completed" 
+                      name="editCompleted" 
                       value="Yes" 
                       checked={editCompleted === 'Yes'} 
-                      onChange={(e) => setEditCompleted(e.target.value)} 
+                      onChange={() => setEditCompleted('Yes')} 
                     /> Yes
                   </label>
-                  <label className="choice">
+                  <label className={`choice ${editCompleted === 'No' ? 'active' : ''}`}>
                     <input 
                       type="radio" 
-                      name="completed" 
+                      name="editCompleted" 
                       value="No" 
                       checked={editCompleted === 'No'} 
-                      onChange={(e) => setEditCompleted(e.target.value)} 
+                      onChange={() => setEditCompleted('No')} 
                     /> No
                   </label>
                 </div>
@@ -397,31 +453,31 @@ const Records = () => {
               <div className="field">
                 <label>Which side did you check?</label>
                 <div className="choice-row">
-                  <label className="choice">
+                  <label className={`choice ${editSideChecked === 'Left breast' ? 'active' : ''}`}>
                     <input 
                       type="radio" 
-                      name="sideChecked" 
+                      name="editSideChecked" 
                       value="Left breast" 
                       checked={editSideChecked === 'Left breast'} 
-                      onChange={(e) => setEditSideChecked(e.target.value)} 
+                      onChange={() => setEditSideChecked('Left breast')} 
                     /> Left breast
                   </label>
-                  <label className="choice">
+                  <label className={`choice ${editSideChecked === 'Right breast' ? 'active' : ''}`}>
                     <input 
                       type="radio" 
-                      name="sideChecked" 
+                      name="editSideChecked" 
                       value="Right breast" 
                       checked={editSideChecked === 'Right breast'} 
-                      onChange={(e) => setEditSideChecked(e.target.value)} 
+                      onChange={() => setEditSideChecked('Right breast')} 
                     /> Right breast
                   </label>
-                  <label className="choice">
+                  <label className={`choice ${editSideChecked === 'Both' ? 'active' : ''}`}>
                     <input 
                       type="radio" 
-                      name="sideChecked" 
+                      name="editSideChecked" 
                       value="Both" 
                       checked={editSideChecked === 'Both'} 
-                      onChange={(e) => setEditSideChecked(e.target.value)} 
+                      onChange={() => setEditSideChecked('Both')} 
                     /> Both
                   </label>
                 </div>
@@ -430,31 +486,31 @@ const Records = () => {
               <div className="field">
                 <label>Did everything feel normal for you?</label>
                 <div className="choice-row">
-                  <label className="choice">
+                  <label className={`choice ${editFeltNormal === 'Yes' ? 'active' : ''}`}>
                     <input 
                       type="radio" 
-                      name="feltNormal" 
+                      name="editFeltNormal" 
                       value="Yes" 
                       checked={editFeltNormal === 'Yes'} 
-                      onChange={(e) => setEditFeltNormal(e.target.value)} 
+                      onChange={() => setEditFeltNormal('Yes')} 
                     /> Yes
                   </label>
-                  <label className="choice">
+                  <label className={`choice ${editFeltNormal === 'No' ? 'active' : ''}`}>
                     <input 
                       type="radio" 
-                      name="feltNormal" 
+                      name="editFeltNormal" 
                       value="No" 
                       checked={editFeltNormal === 'No'} 
-                      onChange={(e) => setEditFeltNormal(e.target.value)} 
+                      onChange={() => setEditFeltNormal('No')} 
                     /> No
                   </label>
-                  <label className="choice">
+                  <label className={`choice ${editFeltNormal === 'Not sure' ? 'active' : ''}`}>
                     <input 
                       type="radio" 
-                      name="feltNormal" 
+                      name="editFeltNormal" 
                       value="Not sure" 
                       checked={editFeltNormal === 'Not sure'} 
-                      onChange={(e) => setEditFeltNormal(e.target.value)} 
+                      onChange={() => setEditFeltNormal('Not sure')} 
                     /> Not sure
                   </label>
                 </div>
@@ -487,29 +543,31 @@ const Records = () => {
               <div className="field">
                 <label>Reminder for next month?</label>
                 <div className="choice-row">
-                  <label className="choice">
+                  <label className={`choice ${editReminder === 'Yes' ? 'active' : ''}`}>
                     <input 
                       type="radio" 
-                      name="reminder" 
+                      name="editReminder" 
                       value="Yes" 
                       checked={editReminder === 'Yes'} 
-                      onChange={(e) => setEditReminder(e.target.value)} 
+                      onChange={() => setEditReminder('Yes')} 
                     /> Yes
                   </label>
-                  <label className="choice">
+                  <label className={`choice ${editReminder === 'No' ? 'active' : ''}`}>
                     <input 
                       type="radio" 
-                      name="reminder" 
+                      name="editReminder" 
                       value="No" 
                       checked={editReminder === 'No'} 
-                      onChange={(e) => setEditReminder(e.target.value)} 
+                      onChange={() => setEditReminder('No')} 
                     /> No
                   </label>
                 </div>
               </div>
 
               <div className="form-actions">
-                <button type="submit" className="btn-primary">Save changes</button>
+                <button type="submit" className="btn-primary" disabled={savingEdit}>
+                  {savingEdit ? 'Saving...' : 'Save changes'}
+                </button>
                 <button type="button" className="btn-ghost" onClick={() => setView('detail')}>Cancel</button>
               </div>
 
@@ -534,9 +592,11 @@ const Records = () => {
         <div className="modal">
           <h4>Delete this self-check record?</h4>
           <p>This will remove the record from your history. This action cannot be undone.</p>
-          <div class="modal-actions">
-            <button className="btn-ghost" onClick={() => setShowDeleteModal(false)}>Cancel</button>
-            <button className="btn-mini danger" style={{ padding: '14px' }} onClick={confirmDelete}>Delete record</button>
+          <div className="modal-actions">
+            <button className="btn-ghost" onClick={() => setShowDeleteModal(false)} disabled={deletingRecord}>Cancel</button>
+            <button className="btn-mini danger" style={{ padding: '14px' }} onClick={confirmDelete} disabled={deletingRecord}>
+              {deletingRecord ? 'Deleting...' : 'Delete record'}
+            </button>
           </div>
         </div>
       </div>
