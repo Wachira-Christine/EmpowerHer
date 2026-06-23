@@ -1,7 +1,20 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 const AdminSidebar = () => {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/admin/login');
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
+  };
+
   const sidebarItems = [
     { path: '/admin', no: '01', label: 'Admin Dashboard' },
     { path: '/admin/content', no: '02', label: 'Manage Content' },
@@ -56,6 +69,34 @@ const AdminSidebar = () => {
           </React.Fragment>
         ))}
       </ul>
+
+      <div style={{ marginTop: 'auto', padding: '14px 4px 10px' }}>
+        <button 
+          onClick={handleLogout} 
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--oxblood)',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            cursor: 'pointer',
+            padding: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontWeight: '600'
+          }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          Sign Out
+        </button>
+      </div>
       
       <div className="toc-foot" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', opacity: 0.45, letterSpacing: '0.05em', paddingTop: '18px', borderTop: '1px solid var(--line)' }}>
         EMPOWERHER ADMIN — ED. 2026

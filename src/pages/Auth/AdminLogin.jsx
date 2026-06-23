@@ -7,16 +7,55 @@ import desertImg from '../../assets/desert.jpg';
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, loading } = useAuth();
+  const [errorMsg, setErrorMsg] = useState('');
+  const [loadingState, setLoadingState] = useState(false);
+
+  const { login, logout } = useAuth();
   const navigate = useNavigate();
+
+  const getFriendlyErrorMessage = (error) => {
+    if (!error || !error.code) return error.message || "Authentication failed. Please check your credentials.";
+    switch (error.code) {
+      case 'auth/user-not-found':
+        return "No administrator matches this email address.";
+      case 'auth/wrong-password':
+        return "Incorrect password. Please try again.";
+      case 'auth/invalid-email':
+        return "The email address format is not valid.";
+      case 'auth/user-disabled':
+        return "This administrator account has been disabled.";
+      default:
+        return error.message;
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) return;
-    
-    // Pass role = 'admin' to the auth context login
-    await login(email, password, 'admin');
-    navigate('/admin');
+    setErrorMsg('');
+    setLoadingState(true);
+
+    try {
+      const response = await login(email, password);
+      const userRole = response.profile?.role;
+      const userStatus = response.profile?.accountStatus;
+
+      if (userRole !== 'admin') {
+        // Sign out immediately if not admin
+        await logout();
+        setErrorMsg("This account does not have admin access.");
+      } else if (userStatus !== 'active') {
+        await logout();
+        setErrorMsg("This administrator account is not active.");
+      } else {
+        navigate('/admin');
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(getFriendlyErrorMessage(err));
+    } finally {
+      setLoadingState(false);
+    }
   };
 
   return (
@@ -33,6 +72,21 @@ const AdminLogin = () => {
           <p className="auth-sub" style={{ fontSize: '13px', marginTop: '6px', color: 'var(--text-secondary)' }}>
             Sign in to manage EmpowerHer content, clinic information, and system resources.
           </p>
+
+          {errorMsg && (
+            <div style={{
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              color: 'var(--oxblood)',
+              padding: '10px',
+              borderRadius: '6px',
+              fontSize: '13px',
+              marginBottom: '15px',
+              textAlign: 'left'
+            }}>
+              {errorMsg}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} style={{ marginTop: '20px' }}>
             <div className="auth-field">
@@ -75,8 +129,8 @@ const AdminLogin = () => {
               </div>
             </div>
 
-            <button type="submit" className="auth-btn-pill" disabled={loading} style={{ marginTop: '12px' }}>
-              {loading ? 'Authenticating...' : 'Sign in as Admin'}
+            <button type="submit" className="auth-btn-pill" disabled={loadingState} style={{ marginTop: '12px' }}>
+              {loadingState ? 'Authenticating...' : 'Sign in as Admin'}
             </button>
           </form>
 

@@ -1,44 +1,107 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../firebase/firebase';
+import { 
+  registerUser, 
+  loginUser, 
+  logoutUser, 
+  getUserProfile 
+} from '../services/authService';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  // Placeholder for user authentication state.
-  // In the future, this will hook into Firebase Auth.
   const [user, setUser] = useState(null); 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Future Firebase Login implementation placeholder
-  const login = async (email, password, role = 'user') => {
+  // Monitor Firebase Auth status changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const profile = await getUserProfile(firebaseUser.uid);
+          if (profile) {
+            setUser({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: profile.fullName || firebaseUser.displayName,
+              role: profile.role || 'user',
+              accountStatus: profile.accountStatus || 'active',
+              ...profile
+            });
+          } else {
+            // Profile doc might be missing or still creating, default to standard user
+            setUser({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName,
+              role: 'user',
+              accountStatus: 'active'
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching user profile from Firestore:", error);
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName,
+            role: 'user',
+            accountStatus: 'active'
+          });
+        }
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const login = async (email, password) => {
     setLoading(true);
     try {
-      console.log('Firebase auth login placeholder called with:', email, role);
-      // Simulate successful login of a normal user or admin
-      setUser({ email, role, name: role === 'admin' ? 'Admin Operator' : 'Jane Doe' });
-    } catch (error) {
-      console.error(error);
+      const response = await loginUser(email, password);
+      setUser({
+        uid: response.user.uid,
+        email: response.user.email,
+        displayName: response.profile.fullName,
+        role: response.profile.role,
+        accountStatus: response.profile.accountStatus,
+        ...response.profile
+      });
+      return response;
     } finally {
       setLoading(false);
     }
   };
 
-  // Future Firebase Registration implementation placeholder
-  const register = async (name, email, password) => {
+  const register = async (name, email, password, phoneNumber) => {
     setLoading(true);
     try {
-      console.log('Firebase auth registration placeholder called for:', name, email);
-      setUser({ email, role: 'user', name });
-    } catch (error) {
-      console.error(error);
+      const response = await registerUser(name, email, password, phoneNumber);
+      setUser({
+        uid: response.user.uid,
+        email: response.user.email,
+        displayName: response.profile.fullName,
+        role: response.profile.role,
+        accountStatus: response.profile.accountStatus,
+        ...response.profile
+      });
+      return response;
     } finally {
       setLoading(false);
     }
   };
 
-  // Future Firebase Sign Out implementation placeholder
   const logout = async () => {
-    console.log('Firebase sign out placeholder called');
-    setUser(null);
+    setLoading(true);
+    try {
+      await logoutUser();
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

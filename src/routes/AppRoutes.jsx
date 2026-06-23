@@ -32,6 +32,10 @@ import UserFeedback from '../pages/Admin/UserFeedback';
 import SystemSummary from '../pages/Admin/SystemSummary';
 import AdminSettings from '../pages/Admin/AdminSettings';
 
+// Route Guards
+import ProtectedRoute from '../components/ProtectedRoute';
+import AdminProtectedRoute from '../components/AdminProtectedRoute';
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -47,7 +51,7 @@ const AppRoutes = () => {
         <Route path="admin/login" element={<AdminLogin />} />
         
         {/* User Workspace Module (Under UserLayout) */}
-        <Route element={<UserLayout />}>
+        <Route element={<ProtectedRoute><UserLayout /></ProtectedRoute>}>
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="education" element={<Education />} />
           <Route path="education/article" element={<ArticleDetail />} />
@@ -59,7 +63,7 @@ const AppRoutes = () => {
         </Route>
 
         {/* Admin Workspace Module (Under AdminLayout) */}
-        <Route element={<AdminLayout />}>
+        <Route element={<AdminProtectedRoute><AdminLayout /></AdminProtectedRoute>}>
           <Route path="admin" element={<AdminDashboard />} />
           <Route path="admin/content" element={<ManageContent />} />
           <Route path="admin/self-exam-guide" element={<ManageSelfExamGuide />} />
