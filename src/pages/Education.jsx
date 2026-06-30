@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import '../styles/education.css';
 
@@ -10,8 +10,8 @@ const Education = () => {
 
   // Sync published articles in real-time
   useEffect(() => {
-    const colRef = collection(db, 'educationalContent');
-    const q = query(colRef, where('published', '==', true));
+    const colRef = collection(db, 'educationalArticles');
+    const q = query(colRef, where('status', '==', 'Published'));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const list = [];
@@ -31,7 +31,7 @@ const Education = () => {
       setArticles(list);
       setLoading(false);
     }, (err) => {
-      console.error("Firestore education sync error:", err);
+      console.error("Firestore articles sync error:", err);
       setLoading(false);
     });
 
@@ -64,27 +64,60 @@ const Education = () => {
       {loading ? (
         <div style={{ padding: '40px', textAlign: 'center', opacity: 0.6 }}>Loading articles...</div>
       ) : articles.length === 0 ? (
-        <div className="empty" style={{ padding: '60px 20px', textAlign: 'center' }}>
-          <h3>No topics available</h3>
-          <p>Please check back later for educational content.</p>
+        <div className="empty" style={{ padding: '60px 20px', textAlign: 'center', border: '1.5px dashed var(--line)' }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', margin: '0 0 8px' }}>No articles yet</h3>
+          <p style={{ fontSize: '14px', opacity: 0.65 }}>Check back later for educational breast health updates.</p>
         </div>
       ) : (
         <div className="edu-grid">
           {articles.map((article, idx) => (
-            <Link
+            <div
               key={article.id}
-              to={`/education/article?id=${article.id}`}
               className={`edu-card ${colors[idx % 3]}`}
+              style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', textDecoration: 'none' }}
             >
-              <span className="corner" />
-              <span className="no">{(idx + 1).toString().padStart(2, '0')}</span>
-              <div className="ic">{icons[idx % 6]}</div>
               <div>
-                <h4>{article.title}</h4>
-                <p>{article.summary}</p>
-                <span className="read">Read article</span>
+                <span className="corner" />
+                <span className="no">{(idx + 1).toString().padStart(2, '0')}</span>
+                <div className="ic">{icons[idx % 6]}</div>
+                <div>
+                  <h4 style={{ fontSize: '18px', fontWeight: '600', margin: '0 0 6px' }}>{article.title}</h4>
+                  <p style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', opacity: 0.5, marginBottom: '6px' }}>
+                    {article.category} • {article.readTime}
+                  </p>
+                  <p style={{ opacity: 0.7, fontSize: '13.5px', lineHeight: 1.5 }}>{article.shortDescription}</p>
+                </div>
               </div>
-            </Link>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+                {article.articleBody && (
+                  <Link to={`/education/article?id=${article.id}`} className="read" style={{ fontSize: '13px', textDecoration: 'underline', color: 'var(--ink)' }}>
+                    Read article
+                  </Link>
+                )}
+                {article.articleLink && (
+                  <a 
+                    href={article.articleLink} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="btn-mini"
+                    style={{ 
+                      textDecoration: 'none', 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      padding: '6px 12px',
+                      fontSize: '11px',
+                      fontFamily: 'var(--font-mono)',
+                      border: '1.5px solid var(--oxblood)',
+                      color: 'var(--oxblood)'
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Learn More
+                  </a>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       )}

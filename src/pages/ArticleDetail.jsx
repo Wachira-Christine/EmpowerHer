@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, orderBy, getDocs, addDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import '../styles/education.css';
 
@@ -19,24 +19,24 @@ const ArticleDetail = () => {
       setLoading(true);
       setFeedbackSubmitted(false);
       try {
-        // Load active article
-        const docRef = doc(db, 'educationalContent', articleId);
+        // Load active article from educationalArticles collection
+        const docRef = doc(db, 'educationalArticles', articleId);
         const docSnap = await getDoc(docRef);
 
-        if (docSnap.exists()) {
+        if (docSnap.exists() && docSnap.data().status === 'Published') {
           const activeData = { id: docSnap.id, ...docSnap.data() };
           setArticle(activeData);
 
           // Fetch all published articles to find "Next Up" article dynamically
-          const colRef = collection(db, 'educationalContent');
-          const q = query(colRef, where('published', '==', true));
+          const colRef = collection(db, 'educationalArticles');
+          const q = query(colRef, where('status', '==', 'Published'));
           const snapshot = await getDocs(q);
           const list = [];
           snapshot.forEach(d => {
             list.push({ id: d.id, ...d.data() });
           });
 
-          // Sort list locally to avoid composite index requirements
+          // Sort list locally
           list.sort((a, b) => {
             const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 
                           a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 
@@ -106,43 +106,43 @@ const ArticleDetail = () => {
 
       {/* Article Header info */}
       <div>
-        <span className="edu-article-tag">Educational Content</span>
+        <span className="edu-article-tag">{article.category}</span>
         <h1 className="edu-article-title">
           {article.title}
         </h1>
         <p className="edu-article-meta">
-          {article.readingTime ? `${article.readingTime} minute read` : '4 minute read'} · Available offline
+          {article.readTime || '4 minute read'} · Available offline
         </p>
       </div>
 
-      {/* Hero Cover Image or default placeholder */}
-      {article.mediaURL ? (
-        <img 
-          src={article.mediaURL} 
-          alt={article.title} 
-          style={{ width: '100%', height: '240px', objectFit: 'cover', border: '1px solid var(--line)', marginBottom: '24px' }} 
-        />
-      ) : (
-        <div className="edu-article-ic-hero">?</div>
-      )}
+      <div className="edu-article-ic-hero">?</div>
 
       {/* Article Body */}
-      <article 
-        className="edu-article-body" 
-        dangerouslySetInnerHTML={{ __html: article.contentBody }}
-      />
+      {article.articleBody && (
+        <article 
+          className="edu-article-body" 
+          dangerouslySetInnerHTML={{ __html: article.articleBody }}
+        />
+      )}
 
-      {/* Media Gallery if exists */}
-      {article.gallery && article.gallery.length > 0 && (
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '24px 0' }}>
-          {article.gallery.map((url, index) => (
-            <img 
-              key={index} 
-              src={url} 
-              alt={`Gallery ${index}`} 
-              style={{ width: '80px', height: '80px', objectFit: 'cover', border: '1px solid var(--line)' }} 
-            />
-          ))}
+      {/* Short Description banner */}
+      <div style={{ border: '1px solid var(--line)', background: 'var(--paper-deep)', padding: '20px', margin: '20px 0', fontSize: '14.5px', lineStyle: 'italic' }}>
+        <strong>Summary:</strong>
+        <p style={{ margin: '6px 0 0', opacity: 0.8 }}>{article.shortDescription}</p>
+      </div>
+
+      {/* Learn More Button */}
+      {article.articleLink && (
+        <div style={{ margin: '24px 0' }}>
+          <a 
+            href={article.articleLink} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="btn-primary"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+          >
+            Learn More
+          </a>
         </div>
       )}
 

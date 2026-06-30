@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { createSelfCheckRecord } from '../services/selfCheckService';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import Button from '../components/common/Button';
 import '../styles/self_examination.css';
@@ -94,24 +94,36 @@ const SelfExam = () => {
     }
   ];
 
+  const [healthNote, setHealthNote] = useState('');
   const [guideSteps, setGuideSteps] = useState(defaultSteps);
   const [loadingSteps, setLoadingSteps] = useState(true);
 
   // Sync self-exam steps in real-time from Firestore
   useEffect(() => {
-    const colRef = collection(db, 'selfExamGuides');
-    const q = query(colRef, where('published', '==', true));
+    // 1. Listen to settings for healthNote
+    const settingsRef = doc(db, 'selfExamGuide', 'settings');
+    const unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setHealthNote(docSnap.data().healthNote || '');
+      }
+    }, (err) => {
+      console.error("HealthNote sync error:", err);
+    });
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    // 2. Listen to active steps
+    const stepsRef = collection(db, 'selfExamGuide', 'steps', 'steps');
+    const q = query(stepsRef, where('status', '==', 'Active'));
+
+    const unsubscribeSteps = onSnapshot(q, (snapshot) => {
       const list = [];
       snapshot.forEach(doc => {
         const data = doc.data();
         list.push({
           id: doc.id,
-          tag: data.shortExplanation || 'Step',
+          tag: data.title || 'Step',
           title: data.title || '',
-          desc: data.instruction || '',
-          illustration: data.illustrationUrl || data.imageUrl || 'Step Illustration',
+          desc: data.description || '',
+          illustration: data.imageUrl || 'Step Illustration',
           imageUrl: data.imageUrl || '',
           ...data
         });
@@ -138,10 +150,15 @@ const SelfExam = () => {
       setLoadingSteps(false);
     }, (err) => {
       console.error("SelfExam guides sync error:", err);
+      // Fallback
+      setGuideSteps(defaultSteps);
       setLoadingSteps(false);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeSettings();
+      unsubscribeSteps();
+    };
   }, []);
 
   const handleCheckboxChange = (key) => {
@@ -352,6 +369,20 @@ const SelfExam = () => {
         <div className="rule" />
         <span className="tag">Interactive</span>
       </div>
+
+      {healthNote && (
+        <div className="health-note-box" style={{ 
+          background: 'var(--paper-deep)', 
+          padding: '16px 18px', 
+          fontSize: '13.5px', 
+          lineHeight: '1.6', 
+          marginBottom: '20px', 
+          borderLeft: '4.5px solid var(--mustard)'
+        }}>
+          <b>Health note</b>
+          <p style={{ margin: '4px 0 0', opacity: 0.85 }}>{healthNote}</p>
+        </div>
+      )}
 
       {/* Progress Track */}
       <div className="self-progress-wrap">

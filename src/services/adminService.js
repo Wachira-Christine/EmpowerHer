@@ -32,7 +32,7 @@ export const uploadFile = async (file, folderPath) => {
 // ==========================================
 // PAGE 1: EDUCATIONAL CONTENT SERVICES
 // ==========================================
-const CONTENT_COLL = 'educationalContent';
+const CONTENT_COLL = 'educationalArticles';
 
 export const fetchArticles = async () => {
   const colRef = collection(db, CONTENT_COLL);
@@ -55,8 +55,6 @@ export const addArticle = async (articleData) => {
   const colRef = collection(db, CONTENT_COLL);
   const docRef = await addDoc(colRef, {
     ...articleData,
-    views: articleData.views || 0,
-    published: articleData.published ?? false,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
@@ -81,8 +79,7 @@ export const duplicateArticle = async (article) => {
   const duplicatedData = {
     ...rest,
     title: `${rest.title} (Copy)`,
-    published: false,
-    views: 0
+    status: 'Draft'
   };
   return await addArticle(duplicatedData);
 };
