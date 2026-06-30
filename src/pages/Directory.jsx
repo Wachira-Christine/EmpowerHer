@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import '../styles/clinics.css';
 
@@ -11,94 +11,67 @@ const Directory = () => {
   const [facilities, setFacilities] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Views: 'list' | 'detail' | 'empty'
+  // Views: 'list' | 'detail'
   const [view, setView] = useState('list');
   const [selectedFacility, setSelectedFacility] = useState(null);
 
   // Search & Filters State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCounty, setSelectedCounty] = useState('All counties');
-  const [checkedServices, setCheckedServices] = useState({
-    'Breast screening': false,
-    'Consultation': false,
-    'Oncology referral': false,
-    'General clinic': false,
-    'Public facility': false,
-    'Private facility': false
-  });
+  const [selectedType, setSelectedType] = useState('All types');
 
-  // Real-time Firestore sync (exclude deleted)
+  // Real-time Firestore sync (exclude Hidden/Deleted)
   useEffect(() => {
-    const colRef = collection(db, 'healthcareFacilities');
-    const q = query(colRef, orderBy('facilityName', 'asc'));
+    const colRef = collection(db, 'clinicFacilities');
+    const q = query(colRef, where('status', '==', 'Active'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const list = [];
       snapshot.forEach(doc => {
         const data = doc.data();
-        if (data.status === 'deleted') return; // Filter locally
         list.push({
           id: doc.id,
           name: data.facilityName,
-          location: data.address || data.location?.address || 'Location on file',
-          county: data.county || 'On file',
-          phone: data.contacts?.phone || 'Phone on file',
-          services: data.servicesOffered?.join(', ') || 'Breast health services',
+          county: data.county || 'Nairobi',
+          type: data.facilityType || 'Public',
+          location: data.fullAddress || 'Address on file',
+          phone: data.phoneNumber || 'Phone on file',
+          services: data.servicesOffered || 'Screening, Consultation',
           openingHours: data.openingHours || 'Mon–Fri, 8:00 AM–5:00 PM',
-          type: data.facilityType || 'General facility',
-          typeShort: data.facilityType === 'Public' ? 'Public' : data.facilityType === 'Private' ? 'Private' : 'NGO',
-          notes: data.notes || 'No special notes before visiting.',
-          latitude: data.location?.latitude,
-          longitude: data.location?.longitude
+          notes: data.notesBeforeVisiting || 'Please contact the clinic before visiting.',
+          mapLink: data.mapLink || ''
         });
       });
+
+      // Sort locally by name
+      list.sort((a, b) => a.name.localeCompare(b.name));
       setFacilities(list);
       
-      // Default select the first item for details view initial state
+      // Initial details view state
       if (list.length > 0) {
         setSelectedFacility(list[0]);
       }
       setLoading(false);
     }, (err) => {
-      console.error("Firestore facilities sync error:", err);
+      console.error("Firestore clinicFacilities sync error:", err);
       setLoading(false);
     });
 
     return unsubscribe;
   }, []);
 
-  // Services checkbox handler
-  const handleCheckboxChange = (serviceName) => {
-    setCheckedServices(prev => ({
-      ...prev,
-      [serviceName]: !prev[serviceName]
-    }));
-  };
-
   // Filter facilities logic
   const getFilteredFacilities = () => {
     return facilities.filter(fac => {
-      // Search query check
       const matchesSearch = searchQuery === '' || 
         fac.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         fac.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
         fac.services.toLowerCase().includes(searchQuery.toLowerCase());
 
-      // County check
       const matchesCounty = selectedCounty === 'All counties' || fac.county === selectedCounty;
+      const matchesType = selectedType === 'All types' || fac.type === selectedType;
 
-      // Service types check (if any checked, must match at least one attribute)
-      let matchesServices = true;
-      const activeFilters = Object.keys(checkedServices).filter(k => checkedServices[k]);
-      if (activeFilters.length > 0) {
-        matchesServices = activeFilters.some(filter => {
-          if (filter === 'Public facility') return fac.typeShort === 'Public';
-          if (filter === 'Private facility') return fac.typeShort === 'Private';
-          return fac.services.toLowerCase().includes(filter.toLowerCase());
-        });
-      }
-
-      return matchesSearch && matchesCounty && matchesServices;
+      return matchesSearch && matchesCounty && matchesType;
     });
   };
 
@@ -106,8 +79,8 @@ const Directory = () => {
 
   // Unique counties list compiled from live data
   const countiesList = ['All counties', ...new Set(facilities.map(f => f.county).filter(Boolean))];
+  const typesList = ['All types', 'Public', 'Private', 'NGO', 'Community health centre'];
 
-  // Detail switcher helper
   const handleViewDetails = (facility) => {
     setSelectedFacility(facility);
     setView('detail');
@@ -116,14 +89,7 @@ const Directory = () => {
   const handleClearFilters = () => {
     setSearchQuery('');
     setSelectedCounty('All counties');
-    setCheckedServices({
-      'Breast screening': false,
-      'Consultation': false,
-      'Oncology referral': false,
-      'General clinic': false,
-      'Public facility': false,
-      'Private facility': false
-    });
+    setSelectedType('All types');
     setView('list');
   };
 
@@ -131,15 +97,7 @@ const Directory = () => {
     alert(`Calling ${phone}...`);
   };
 
-  const handleViewMap = (fac) => {
-    if (fac.latitude && fac.longitude) {
-      window.open(`https://www.openstreetmap.org/?mlat=${fac.latitude}&mlon=${fac.longitude}#map=16/${fac.latitude}/${fac.longitude}`, '_blank');
-    } else {
-      window.open(`https://www.openstreetmap.org/search?query=${encodeURIComponent(fac.name + ' ' + fac.location)}`, '_blank');
-    }
-  };
-
-  const handleSetReminder = (fac) => {
+  const handleSetReminder = () => {
     navigate('/reminders');
   };
 
@@ -189,21 +147,12 @@ const Directory = () => {
               </select>
             </div>
 
-            {/* Services Checkboxes */}
+            {/* Type Select */}
             <div className="field">
-              <label>Filter by services offered</label>
-              <div className="checkbox-list">
-                {Object.keys(checkedServices).map(serviceName => (
-                  <label key={serviceName} className="checkbox-row">
-                    <input 
-                      type="checkbox" 
-                      checked={checkedServices[serviceName]}
-                      onChange={() => handleCheckboxChange(serviceName)}
-                    />
-                    <span>{serviceName}</span>
-                  </label>
-                ))}
-              </div>
+              <label>Facility type</label>
+              <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
+                {typesList.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
@@ -225,7 +174,7 @@ const Directory = () => {
               {loading ? (
                 <div style={{ padding: '20px', textAlign: 'center', opacity: 0.6 }}>Loading facilities...</div>
               ) : filteredFacilities.length === 0 ? (
-                <div className="empty" style={{ padding: '40px 20px', textAlign: 'center' }}>
+                <div className="empty" style={{ padding: '40px 20px', textAlign: 'center', border: '1.5px dashed var(--line)' }}>
                   <h3>No clinics match your filters</h3>
                   <p>Try widening your search text or removing checkbox services.</p>
                   <button className="btn-primary" onClick={handleClearFilters}>Reset Filters</button>
@@ -237,7 +186,14 @@ const Directory = () => {
                       <span className="corner"></span>
                       <div className="clinic-top">
                         <h4 className="clinic-title">{fac.name}</h4>
-                        <span className="type-badge">{fac.type}</span>
+                        <span className="type-badge" style={{
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '10px',
+                          textTransform: 'uppercase',
+                          background: 'var(--paper-deep)',
+                          padding: '4px 8px',
+                          borderRadius: '3px'
+                        }}>{fac.type}</span>
                       </div>
                       <p className="clinic-loc">{fac.location}, {fac.county} County</p>
                       <p className="clinic-services"><strong>Services:</strong> {fac.services}</p>
@@ -265,7 +221,13 @@ const Directory = () => {
                   <button className="back-link-btn" onClick={() => setView('list')}>← Back to list</button>
 
                   <h3 className="detail-title">{selectedFacility.name}</h3>
-                  <p className="detail-type">{selectedFacility.type}</p>
+                  <p className="detail-type" style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '11px',
+                    textTransform: 'uppercase',
+                    opacity: 0.7,
+                    marginBottom: '15px'
+                  }}>{selectedFacility.type}</p>
 
                   <div className="detail-info-group">
                     <p><strong>📍 Location:</strong> {selectedFacility.location}, {selectedFacility.county} County</p>
@@ -283,8 +245,18 @@ const Directory = () => {
 
                   <div className="detail-actions">
                     <button className="btn-primary" onClick={() => handleCallClinic(selectedFacility.phone)}>Call Clinic</button>
-                    <button className="btn-secondary" onClick={() => handleViewMap(selectedFacility)}>View Map location</button>
-                    <button className="btn-ghost" onClick={() => handleSetReminder(selectedFacility)}>Schedule visit reminder</button>
+                    {selectedFacility.mapLink && (
+                      <a 
+                        href={selectedFacility.mapLink} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="btn-secondary"
+                        style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        Open Map
+                      </a>
+                    )}
+                    <button className="btn-ghost" onClick={handleSetReminder}>Schedule visit reminder</button>
                   </div>
                 </div>
               </>

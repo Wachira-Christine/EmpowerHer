@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase/firebase';
 import { 
   fetchArticles, 
   addArticle, 
@@ -42,6 +44,7 @@ const ManageContent = () => {
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [adminSettings, setAdminSettings] = useState(null);
 
   // Category list
   const categories = [
@@ -82,12 +85,35 @@ const ManageContent = () => {
     loadArticlesData();
   }, []);
 
-  // Sync author info
+  // Sync author info and preferences
   useEffect(() => {
     if (user && !formAuthorName) {
       setFormAuthorName(user.email || 'Admin');
     }
   }, [user, formAuthorName]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const fetchAdminSettings = async () => {
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        const snap = await getDoc(userRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.adminSettings) {
+            setAdminSettings(data.adminSettings);
+            // Default article status applied on creation
+            if (!editingId && data.adminSettings.defaultArticleStatus) {
+              setFormStatus(data.adminSettings.defaultArticleStatus);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error loading admin settings in ManageContent:", err);
+      }
+    };
+    fetchAdminSettings();
+  }, [user, editingId]);
 
   const validateUrl = (url) => {
     if (!url) return true;
@@ -149,9 +175,20 @@ const ManageContent = () => {
     setView('form');
   };
 
-  const handleDeleteTrigger = (id) => {
-    setDeleteTargetId(id);
-    setIsDeleteModalOpen(true);
+  const handleDeleteTrigger = async (id) => {
+    if (adminSettings?.confirmBeforeDeletingContent === false) {
+      try {
+        await deleteArticle(id);
+        showToast("Article deleted successfully!");
+        await loadArticlesData();
+      } catch (err) {
+        console.error(err);
+        showToast("Failed to delete article", "error");
+      }
+    } else {
+      setDeleteTargetId(id);
+      setIsDeleteModalOpen(true);
+    }
   };
 
   const confirmDelete = async () => {
