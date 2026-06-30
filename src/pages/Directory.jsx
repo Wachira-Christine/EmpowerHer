@@ -1,117 +1,86 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase/firebase';
 import '../styles/clinics.css';
 
 const Directory = () => {
   const navigate = useNavigate();
 
-  // Hardcoded facilities matching templates
-  const initialFacilities = [
-    {
-      id: 1,
-      name: 'Kenyatta National Hospital',
-      location: 'Hospital Rd, Nairobi',
-      county: 'Nairobi',
-      phone: '020 272 6300',
-      services: 'Breast screening, consultation, oncology referral',
-      openingHours: 'Mon–Fri, 8:00 AM–5:00 PM',
-      type: 'Public hospital',
-      typeShort: 'Public',
-      notes: 'Notes before visiting: bring a national ID if available. Walk-in consultations may involve a waiting period — arriving early in the day is recommended.'
-    },
-    {
-      id: 2,
-      name: "Nairobi Women's Hospital",
-      location: 'Nairobi',
-      county: 'Nairobi',
-      phone: '0730 600000',
-      services: "Consultation, screening referral, women's health services",
-      openingHours: 'Mon–Sat, 8:00 AM–5:00 PM',
-      type: 'Private hospital',
-      typeShort: 'Private',
-      notes: "Notes before visiting: Scheduled appointments are prioritized. Contact the clinic in advance to verify screening package pricing."
-    },
-    {
-      id: 3,
-      name: 'County Referral Hospital',
-      location: 'County on file',
-      county: 'Kiambu',
-      phone: 'Phone on file',
-      services: 'General consultation, breast health referral',
-      openingHours: 'Mon–Fri, 8:00 AM–4:00 PM',
-      type: 'Public facility',
-      typeShort: 'Public',
-      notes: 'Notes before visiting: Referrals from local dispensaries are processed at the oncology outpatient clinic on select mornings.'
-    },
-    {
-      id: 4,
-      name: 'Community Health Centre',
-      location: 'County on file',
-      county: 'Mombasa',
-      phone: 'Phone on file',
-      services: 'Breast screening, awareness outreach',
-      openingHours: 'Mon–Sat, 9:00 AM–4:00 PM',
-      type: 'NGO facility',
-      typeShort: 'NGO',
-      notes: 'Notes before visiting: Offers free monthly awareness sessions and basic screening camps. Arrive early.'
-    }
-  ];
+  // Firestore Live Facilities State
+  const [facilities, setFacilities] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Views: 'list' | 'detail' | 'empty'
+  // Views: 'list' | 'detail'
   const [view, setView] = useState('list');
-  const [selectedFacility, setSelectedFacility] = useState(initialFacilities[0]);
+  const [selectedFacility, setSelectedFacility] = useState(null);
 
   // Search & Filters State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCounty, setSelectedCounty] = useState('All counties');
-  const [checkedServices, setCheckedServices] = useState({
-    'Breast screening': true,
-    'Consultation': false,
-    'Oncology referral': false,
-    'General clinic': false,
-    'Public facility': false,
-    'Private facility': false
-  });
+  const [selectedType, setSelectedType] = useState('All types');
 
-  // Services checkbox handler
-  const handleCheckboxChange = (serviceName) => {
-    setCheckedServices(prev => ({
-      ...prev,
-      [serviceName]: !prev[serviceName]
-    }));
-  };
+  // Real-time Firestore sync (exclude Hidden/Deleted)
+  useEffect(() => {
+    const colRef = collection(db, 'clinicFacilities');
+    const q = query(colRef, where('status', '==', 'Active'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        list.push({
+          id: doc.id,
+          name: data.facilityName,
+          county: data.county || 'Nairobi',
+          type: data.facilityType || 'Public',
+          location: data.fullAddress || 'Address on file',
+          phone: data.phoneNumber || 'Phone on file',
+          services: data.servicesOffered || 'Screening, Consultation',
+          openingHours: data.openingHours || 'Mon–Fri, 8:00 AM–5:00 PM',
+          notes: data.notesBeforeVisiting || 'Please contact the clinic before visiting.',
+          mapLink: data.mapLink || ''
+        });
+      });
+
+      // Sort locally by name
+      list.sort((a, b) => a.name.localeCompare(b.name));
+      setFacilities(list);
+      
+      // Initial details view state
+      if (list.length > 0) {
+        setSelectedFacility(list[0]);
+      }
+      setLoading(false);
+    }, (err) => {
+      console.error("Firestore clinicFacilities sync error:", err);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
 
   // Filter facilities logic
   const getFilteredFacilities = () => {
-    return initialFacilities.filter(fac => {
-      // Search query check
+    return facilities.filter(fac => {
       const matchesSearch = searchQuery === '' || 
         fac.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         fac.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
         fac.services.toLowerCase().includes(searchQuery.toLowerCase());
 
-      // County check
       const matchesCounty = selectedCounty === 'All counties' || fac.county === selectedCounty;
+      const matchesType = selectedType === 'All types' || fac.type === selectedType;
 
-      // Service types check (if any checked, must match at least one attribute)
-      // Since this is a mockup search, we'll implement simple matching
-      let matchesServices = true;
-      const activeFilters = Object.keys(checkedServices).filter(k => checkedServices[k]);
-      if (activeFilters.length > 0) {
-        matchesServices = activeFilters.some(filter => {
-          if (filter === 'Public facility') return fac.typeShort === 'Public';
-          if (filter === 'Private facility') return fac.typeShort === 'Private';
-          return fac.services.toLowerCase().includes(filter.toLowerCase());
-        });
-      }
-
-      return matchesSearch && matchesCounty && matchesServices;
+      return matchesSearch && matchesCounty && matchesType;
     });
   };
 
   const filteredFacilities = getFilteredFacilities();
 
-  // Detail switcher helper
+  // Unique counties list compiled from live data
+  const countiesList = ['All counties', ...new Set(facilities.map(f => f.county).filter(Boolean))];
+  const typesList = ['All types', 'Public', 'Private', 'NGO', 'Community health centre'];
+
   const handleViewDetails = (facility) => {
     setSelectedFacility(facility);
     setView('detail');
@@ -120,26 +89,15 @@ const Directory = () => {
   const handleClearFilters = () => {
     setSearchQuery('');
     setSelectedCounty('All counties');
-    setCheckedServices({
-      'Breast screening': false,
-      'Consultation': false,
-      'Oncology referral': false,
-      'General clinic': false,
-      'Public facility': false,
-      'Private facility': false
-    });
+    setSelectedType('All types');
     setView('list');
   };
 
   const handleCallClinic = (phone) => {
-    alert(`Calling ${phone}... (Calling functionality is currently a placeholder)`);
+    alert(`Calling ${phone}...`);
   };
 
-  const handleViewMap = (facName) => {
-    alert(`Opening map view for ${facName}...`);
-  };
-
-  const handleSetReminder = (fac) => {
+  const handleSetReminder = () => {
     navigate('/reminders');
   };
 
@@ -148,189 +106,165 @@ const Directory = () => {
       
       {/* Header */}
       <div>
-        <p className="eyebrow">Section 06</p>
-        <h2 className="h1">Find a Health <em>Facility</em></h2>
-        <p className="dek">Find nearby clinics and health centres where you can seek screening, consultation, or professional support.</p>
+        <p className="eyebrow">Section 04</p>
+        <h2 className="h1">Find breast health <em>facilities</em></h2>
+        <p className="dek">Locate screening packages, consultation centers, and supportive care clinics in Kenya.</p>
       </div>
 
       <div className="notice">
-        <b>Before you visit</b>
-        EmpowerHer does not provide diagnosis. If you notice unusual breast changes or feel worried, please visit a qualified healthcare provider.
+        <b>Clinic Guidance</b>
+        We verify these listings periodically, but schedules change. We recommend calling before you visit to verify screen package costs and diagnostic queues.
       </div>
 
-      {/* Demo Switcher */}
-      <div className="demo-switch">
-        <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>Search & results</button>
-        <button className={view === 'detail' ? 'on' : ''} onClick={() => { if (initialFacilities.length > 0) { setSelectedFacility(initialFacilities[0]); setView('detail'); } }}>Facility details</button>
-        <button className={view === 'empty' ? 'on' : ''} onClick={() => setView('empty')}>No results</button>
-      </div>
+      {/* Main Layout Split */}
+      <div className="clinics-split">
+        
+        {/* Left Column: Filter panel */}
+        <div className="filter-panel">
+          <div className="section-head" style={{ marginTop: 0 }}>
+            <h3>Filters</h3>
+            <div className="rule" />
+            <span className="tag">Find clinic</span>
+          </div>
 
-      {/* ============ LIST VIEW ============ */}
-      {view === 'list' && (
-        <div className="view show">
-          
-          {/* Search Card */}
-          <div className="search-card">
-            <div className="search-row">
+          <div className="filter-card">
+            {/* Search Input */}
+            <div className="field">
+              <label>Search name or services</label>
               <input 
                 type="text" 
-                placeholder="Search by clinic name, town, or county" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="e.g. Mammography, Kenyatta"
               />
+            </div>
+
+            {/* County Select */}
+            <div className="field">
+              <label>County</label>
               <select value={selectedCounty} onChange={(e) => setSelectedCounty(e.target.value)}>
-                <option value="All counties">All counties</option>
-                <option value="Nairobi">Nairobi</option>
-                <option value="Kiambu">Kiambu</option>
-                <option value="Mombasa">Mombasa</option>
+                {countiesList.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            
-            <div className="service-row">
-              {Object.keys(checkedServices).map(service => (
-                <label key={service}>
-                  <input 
-                    type="checkbox" 
-                    checked={checkedServices[service]} 
-                    onChange={() => handleCheckboxChange(service)} 
-                  /> {service}
-                </label>
-              ))}
-            </div>
-            <button className="btn-primary" onClick={() => setView('list')}>Search facilities</button>
-          </div>
 
-          {/* Summary Row */}
-          <div className="summary-row">
-            <div className="sum-card">
-              <span className="corner"></span>
-              <p className="label">Listed facilities</p>
-              <p className="value">{initialFacilities.length}</p>
+            {/* Type Select */}
+            <div className="field">
+              <label>Facility type</label>
+              <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
+                {typesList.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
-            <div className="sum-card alt">
-              <span className="corner"></span>
-              <p className="label">Screening available</p>
-              <p className="value">4</p>
-            </div>
-            <div className="sum-card alt2">
-              <span className="corner"></span>
-              <p className="label">Open today</p>
-              <p className="value">3</p>
-            </div>
-            <div className="sum-card">
-              <span className="corner"></span>
-              <p className="label">Nearest facility</p>
-              <p className="value" style={{ fontSize: '14px' }}>Kenyatta Nat. Hosp.</p>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button className="btn-mini primary" onClick={handleClearFilters}>Clear all</button>
             </div>
           </div>
+        </div>
 
-          <div className="section-head">
-            <h3>Facilities</h3>
-            <div className="rule"></div>
-            <span className="tag">{filteredFacilities.length} results</span>
-          </div>
+        {/* Right Column: View list / detail panel */}
+        <div className="content-panel">
+          {view === 'list' ? (
+            <>
+              <div className="section-head" style={{ marginTop: 0 }}>
+                <h3>Directories</h3>
+                <div className="rule" />
+                <span className="tag">{filteredFacilities.length} found</span>
+              </div>
 
-          {/* Grid List */}
-          {filteredFacilities.length === 0 ? (
-            <div className="empty">
-              <h3>No facilities found</h3>
-              <p>Try changing your location or service filter.</p>
-              <button className="btn-primary" onClick={handleClearFilters}>Clear filters</button>
-            </div>
+              {loading ? (
+                <div style={{ padding: '20px', textAlign: 'center', opacity: 0.6 }}>Loading facilities...</div>
+              ) : filteredFacilities.length === 0 ? (
+                <div className="empty" style={{ padding: '40px 20px', textAlign: 'center', border: '1.5px dashed var(--line)' }}>
+                  <h3>No clinics match your filters</h3>
+                  <p>Try widening your search text or removing checkbox services.</p>
+                  <button className="btn-primary" onClick={handleClearFilters}>Reset Filters</button>
+                </div>
+              ) : (
+                <div className="clinic-list">
+                  {filteredFacilities.map((fac, idx) => (
+                    <div key={fac.id} className={`clinic-card ${idx % 2 === 1 ? 'alt' : ''}`}>
+                      <span className="corner"></span>
+                      <div className="clinic-top">
+                        <h4 className="clinic-title">{fac.name}</h4>
+                        <span className="type-badge" style={{
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '10px',
+                          textTransform: 'uppercase',
+                          background: 'var(--paper-deep)',
+                          padding: '4px 8px',
+                          borderRadius: '3px'
+                        }}>{fac.type}</span>
+                      </div>
+                      <p className="clinic-loc">{fac.location}, {fac.county} County</p>
+                      <p className="clinic-services"><strong>Services:</strong> {fac.services}</p>
+                      <div className="clinic-actions">
+                        <button className="btn-mini primary" onClick={() => handleViewDetails(fac)}>View details</button>
+                        <button className="btn-mini" onClick={() => handleCallClinic(fac.phone)}>Call</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           ) : (
-            <div className="grid">
-              {filteredFacilities.map((fac, idx) => {
-                const cornerClass = idx % 3 === 1 ? 'alt' : idx % 3 === 2 ? 'alt2' : '';
-                return (
-                  <div key={fac.id} className={`fac-card ${cornerClass}`} style={{ cursor: 'pointer' }} onClick={() => handleViewDetails(fac)}>
-                    <span className="corner"></span>
-                    <div className="fac-top">
-                      <p className="fac-name">{fac.name}</p>
-                      <span className="type-pill">{fac.typeShort}</span>
-                    </div>
-                    <p className="fac-loc">{fac.location}</p>
-                    <p className="fac-services">{fac.services}</p>
-                    <p className="fac-meta">{fac.phone} · {fac.openingHours}</p>
-                    
-                    <div className="fac-actions" onClick={(e) => e.stopPropagation()}>
-                      <button className="btn-mini primary" onClick={() => handleViewDetails(fac)}>View details</button>
-                      <button className="btn-mini" onClick={() => handleCallClinic(fac.phone)}>Call clinic</button>
-                      <button className="btn-mini" onClick={() => handleViewMap(fac.name)}>View on map</button>
-                    </div>
+            // DETAIL VIEW
+            selectedFacility && (
+              <>
+                <div className="section-head" style={{ marginTop: 0 }}>
+                  <h3>Clinic detail</h3>
+                  <div className="rule" />
+                  <span className="tag">Info</span>
+                </div>
+
+                <div className="detail-card">
+                  <span className="corner"></span>
+                  <button className="back-link-btn" onClick={() => setView('list')}>← Back to list</button>
+
+                  <h3 className="detail-title">{selectedFacility.name}</h3>
+                  <p className="detail-type" style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '11px',
+                    textTransform: 'uppercase',
+                    opacity: 0.7,
+                    marginBottom: '15px'
+                  }}>{selectedFacility.type}</p>
+
+                  <div className="detail-info-group">
+                    <p><strong>📍 Location:</strong> {selectedFacility.location}, {selectedFacility.county} County</p>
+                    <p><strong>📞 Contact Phone:</strong> {selectedFacility.phone}</p>
+                    <p><strong>🕒 Opening Hours:</strong> {selectedFacility.openingHours}</p>
+                    <p><strong>🔬 Services Offered:</strong> {selectedFacility.services}</p>
                   </div>
-                );
-              })}
-            </div>
+
+                  <hr className="detail-divider" />
+
+                  <div className="detail-notes">
+                    <strong>Before you visit:</strong>
+                    <p>{selectedFacility.notes}</p>
+                  </div>
+
+                  <div className="detail-actions">
+                    <button className="btn-primary" onClick={() => handleCallClinic(selectedFacility.phone)}>Call Clinic</button>
+                    {selectedFacility.mapLink && (
+                      <a 
+                        href={selectedFacility.mapLink} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="btn-secondary"
+                        style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        Open Map
+                      </a>
+                    )}
+                    <button className="btn-ghost" onClick={handleSetReminder}>Schedule visit reminder</button>
+                  </div>
+                </div>
+              </>
+            )
           )}
-
         </div>
-      )}
 
-      {/* ============ DETAIL VIEW ============ */}
-      {view === 'detail' && selectedFacility && (
-        <div className="view show">
-          <div className="section-head">
-            <h3>Facility details</h3>
-            <div className="rule"></div>
-            <span className="tag">{selectedFacility.type}</span>
-          </div>
-
-          <div className="detail-card">
-            <div className="detail-row">
-              <span className="k">Facility name</span>
-              <span className="v">{selectedFacility.name}</span>
-            </div>
-            <div className="detail-row">
-              <span className="k">Address</span>
-              <span className="v">{selectedFacility.location}</span>
-            </div>
-            <div className="detail-row">
-              <span className="k">County</span>
-              <span className="v">{selectedFacility.county}</span>
-            </div>
-            <div className="detail-row">
-              <span className="k">Phone</span>
-              <span className="v">{selectedFacility.phone}</span>
-            </div>
-            <div className="detail-row">
-              <span className="k">Services</span>
-              <span className="v">{selectedFacility.services}</span>
-            </div>
-            <div className="detail-row">
-              <span className="k">Opening hours</span>
-              <span className="v">{selectedFacility.openingHours}</span>
-            </div>
-            <div className="detail-row">
-              <span className="k">Facility type</span>
-              <span className="v">{selectedFacility.type}</span>
-            </div>
-
-            <div className="note-card">{selectedFacility.notes}</div>
-
-            <div className="map-ph">Map preview will appear here when location services are connected.</div>
-
-            <div className="detail-actions">
-              <button className="btn-primary" onClick={() => handleCallClinic(selectedFacility.phone)}>Call clinic</button>
-              <button className="btn-secondary" onClick={() => handleViewMap(selectedFacility.name)}>View on map</button>
-            </div>
-            <div className="detail-actions">
-              <button className="btn-secondary" onClick={() => handleSetReminder(selectedFacility)}>Set appointment reminder</button>
-              <button className="btn-ghost" onClick={() => setView('list')}>Back to facilities</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ============ EMPTY VIEW ============ */}
-      {view === 'empty' && (
-        <div className="view show">
-          <div className="empty">
-            <h3>No facilities found</h3>
-            <p>Try changing your location or service filter.</p>
-            <button className="btn-primary" onClick={handleClearFilters}>Clear filters</button>
-          </div>
-        </div>
-      )}
+      </div>
 
     </div>
   );

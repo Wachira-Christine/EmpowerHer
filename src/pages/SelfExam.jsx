@@ -1,7 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { createSelfCheckRecord } from '../services/selfCheckService';
+import { collection, query, where, orderBy, onSnapshot, doc } from 'firebase/firestore';
+import { db } from '../firebase/firebase';
 import Button from '../components/common/Button';
 import '../styles/self_examination.css';
 
@@ -39,7 +41,8 @@ const SelfExam = () => {
     other: false
   });
 
-  const guideSteps = [
+  // Default steps as fallback
+  const defaultSteps = [
     {
       no: '01',
       tag: 'Prepare',
@@ -91,6 +94,73 @@ const SelfExam = () => {
     }
   ];
 
+  const [healthNote, setHealthNote] = useState('');
+  const [guideSteps, setGuideSteps] = useState(defaultSteps);
+  const [loadingSteps, setLoadingSteps] = useState(true);
+
+  // Sync self-exam steps in real-time from Firestore
+  useEffect(() => {
+    // 1. Listen to settings for healthNote
+    const settingsRef = doc(db, 'selfExamGuide', 'settings');
+    const unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setHealthNote(docSnap.data().healthNote || '');
+      }
+    }, (err) => {
+      console.error("HealthNote sync error:", err);
+    });
+
+    // 2. Listen to active steps
+    const stepsRef = collection(db, 'selfExamGuide', 'steps', 'steps');
+    const q = query(stepsRef, where('status', '==', 'Active'));
+
+    const unsubscribeSteps = onSnapshot(q, (snapshot) => {
+      const list = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        list.push({
+          id: doc.id,
+          tag: data.title || 'Step',
+          title: data.title || '',
+          desc: data.description || '',
+          illustration: data.imageUrl || 'Step Illustration',
+          imageUrl: data.imageUrl || '',
+          ...data
+        });
+      });
+
+      // Sort locally by stepNumber ascending to avoid composite index requirements
+      list.sort((a, b) => {
+        const numA = parseInt(a.stepNumber, 10);
+        const numB = parseInt(b.stepNumber, 10);
+        return (isNaN(numA) ? 999 : numA) - (isNaN(numB) ? 999 : numB);
+      });
+
+      // Format index sequentially to guarantee no NaN is shown
+      const formattedList = list.map((item, idx) => ({
+        ...item,
+        no: (idx + 1).toString().padStart(2, '0')
+      }));
+
+      if (formattedList.length > 0) {
+        setGuideSteps(formattedList);
+      } else {
+        setGuideSteps(defaultSteps);
+      }
+      setLoadingSteps(false);
+    }, (err) => {
+      console.error("SelfExam guides sync error:", err);
+      // Fallback
+      setGuideSteps(defaultSteps);
+      setLoadingSteps(false);
+    });
+
+    return () => {
+      unsubscribeSettings();
+      unsubscribeSteps();
+    };
+  }, []);
+
   const handleCheckboxChange = (key) => {
     setSelectedChanges((prev) => {
       const updated = { ...prev };
@@ -103,7 +173,7 @@ const SelfExam = () => {
         // If any other is checked, toggle it, and turn off "None"
         updated[key] = !prev[key];
         updated.none = false;
-
+ 
         // If nothing is checked anymore, default back to "None"
         const anyChecked = Object.keys(updated).some((k) => k !== 'none' && updated[k]);
         if (!anyChecked) {
@@ -129,7 +199,7 @@ const SelfExam = () => {
   };
 
   const handleNextStep = () => {
-    if (activeStep < 7) {
+    if (activeStep < guideSteps.length) {
       setActiveStep((prev) => prev + 1);
     } else {
       setShowForm(true);
@@ -226,7 +296,7 @@ const SelfExam = () => {
     );
   }
 
-  const currentStepData = guideSteps[activeStep - 1];
+  const currentStepData = guideSteps[activeStep - 1] || defaultSteps[0];
 
   return (
     <div>
@@ -300,14 +370,28 @@ const SelfExam = () => {
         <span className="tag">Interactive</span>
       </div>
 
+      {healthNote && (
+        <div className="health-note-box" style={{ 
+          background: 'var(--paper-deep)', 
+          padding: '16px 18px', 
+          fontSize: '13.5px', 
+          lineHeight: '1.6', 
+          marginBottom: '20px', 
+          borderLeft: '4.5px solid var(--mustard)'
+        }}>
+          <b>Health note</b>
+          <p style={{ margin: '4px 0 0', opacity: 0.85 }}>{healthNote}</p>
+        </div>
+      )}
+
       {/* Progress Track */}
       <div className="self-progress-wrap">
         <div className="self-progress-label">
           <span>Step-by-step progress</span>
-          <span>Step {activeStep} of 7</span>
+          <span>Step {activeStep} of {guideSteps.length}</span>
         </div>
         <div className="self-progress-track">
-          <div className="self-progress-fill" style={{ width: `${(activeStep / 7) * 100}%` }}></div>
+          <div className="self-progress-fill" style={{ width: `${(activeStep / guideSteps.length) * 100}%` }}></div>
         </div>
       </div>
 
@@ -318,9 +402,17 @@ const SelfExam = () => {
         
         <h4>{currentStepData.title}</h4>
         
-        {/* Illustration Placeholder */}
-        <div className="step-illustration-box">
-          {currentStepData.illustration}
+        {/* Illustration Box */}
+        <div className="step-illustration-box" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {currentStepData.imageUrl ? (
+            <img 
+              src={currentStepData.imageUrl} 
+              alt={currentStepData.title} 
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+            />
+          ) : (
+            <span>{currentStepData.illustration || currentStepData.tag}</span>
+          )}
         </div>
 
         <p className="step-desc">{currentStepData.desc}</p>
@@ -338,7 +430,7 @@ const SelfExam = () => {
           </button>
           
           <Button variant="primary" onClick={handleNextStep}>
-            {activeStep === 7 ? 'Continue to self-check form' : 'Next Step →'}
+            {activeStep === guideSteps.length ? 'Continue to self-check form' : 'Next Step →'}
           </Button>
         </div>
 

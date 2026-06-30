@@ -1,124 +1,116 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import '../../styles/admin.css';
 
 const AdminDashboard = () => {
-  const stats = {
-    articles: 5,
-    facilities: 6,
-    feedback: 3
-  };
+  const navigate = useNavigate();
+
+  // Static placeholder metrics matching design reference
+  const articlesCount = 6;
+  const clinicsCount = 6;
+  const stepsCount = 7;
+  const pendingUpdatesCount = 3;
+
+  const quickAccessCards = [
+    {
+      title: 'Manage Educational Content',
+      desc: 'Create, view, update, and remove breast health awareness articles shown on the Learn page.',
+      actions: ['Add article', 'View articles', 'Edit article', 'Delete article'],
+      route: '/admin/content',
+      altClass: ''
+    },
+    {
+      title: 'Manage Self-Examination Guide',
+      desc: 'Update the step-by-step guidance, health notes, and supportive messages used in the guided self-examination page.',
+      actions: ['View guide steps', 'Edit step', 'Update health note', 'Manage tutorial images'],
+      route: '/admin/self-exam-guide',
+      altClass: 'alt'
+    },
+    {
+      title: 'Manage Clinic Directory',
+      desc: 'Add and update health facilities shown on the Find Clinic page.',
+      actions: ['Add facility', 'View facilities', 'Edit facility', 'Delete outdated facility'],
+      route: '/admin/facilities',
+      altClass: 'alt2'
+    },
+    {
+      title: 'Admin Settings',
+      desc: 'Manage admin account preferences and basic system settings.',
+      actions: ['View admin profile', 'Change password', 'Log out'],
+      route: '/admin/settings',
+      altClass: ''
+    }
+  ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-      {/* Page Header */}
+      {/* 1. Header Section */}
       <div>
-        <p className="eyebrow">Control Panel</p>
+        <p className="eyebrow">Admin</p>
         <h2 className="h1">Admin <em>Dashboard</em></h2>
-        <p className="dek">Manage database directories, educational posts, and view community feedback.</p>
+        <p className="dek">Manage educational content, clinic information, and system resources for EmpowerHer.</p>
       </div>
 
+      {/* 2. Admin Scope Notice */}
       <div className="notice">
-        <b>Admin Notice</b>
-        Please keep all patient data confidential. Note that PWA health records are stored locally on user devices and are not stored in central databases.
+        <b>Admin scope</b>
+        Admin actions should support accurate breast health education and safe user guidance. EmpowerHer does not provide diagnosis, risk prediction, or medical decision-making. Admins cannot view private self-check records or personal health notes.
       </div>
 
-      {/* Grid Stats */}
-      <div className="admin-grid">
-        <div className="admin-card">
-          <span className="corner"></span>
-          <h3>{stats.articles}</h3>
-          <span>Total Articles</span>
-        </div>
-        <div className="admin-card">
-          <span className="corner alt"></span>
-          <h3>{stats.facilities}</h3>
-          <span>Facilities Listed</span>
-        </div>
-        <div className="admin-card">
-          <span className="corner alt2"></span>
-          <h3>{stats.feedback}</h3>
-          <span>Pending Feedback</span>
-        </div>
-      </div>
-
-      {/* Tools Section */}
+      {/* 3. Overview Section */}
       <div className="section-head">
-        <h3>Administrative Tools</h3>
+        <h3>Overview</h3>
         <div className="rule"></div>
-        <span className="tag">6 modules</span>
+        <span className="tag">System summary</span>
       </div>
 
-      {/* Bento Grid */}
-      <div className="bento-grid">
-        
-        <Link to="/admin/content" className="bento-card">
+      <div className="summary-row">
+        <div className="sum-card">
           <span className="corner"></span>
-          <span className="no">01</span>
-          <div>
-            <h4>Manage Educational Content</h4>
-            <p>Create, edit, or remove educational articles and health resources.</p>
-          </div>
-          <span className="arrow">Edit Library &rarr;</span>
-        </Link>
-
-        <Link to="/admin/self-exam-guide" className="bento-card alt">
+          <p className="label">Educational articles</p>
+          <p className="value">{articlesCount}</p>
+        </div>
+        <div className="sum-card alt">
           <span className="corner"></span>
-          <span className="no">02</span>
-          <div>
-            <h4>Manage Self-Exam Guide</h4>
-            <p>Update tutorial steps, media attachments, and instructions for guided checks.</p>
-          </div>
-          <span className="arrow">Configure Guide &rarr;</span>
-        </Link>
-
-        <Link to="/admin/facilities" className="bento-card alt2">
+          <p className="label">Listed facilities</p>
+          <p className="value">{clinicsCount}</p>
+        </div>
+        <div className="sum-card alt2">
           <span className="corner"></span>
-          <span className="no">03</span>
-          <div>
-            <h4>Manage Clinic Directory</h4>
-            <p>Update healthcare centers, phone numbers, and services offered.</p>
-          </div>
-          <span className="arrow">Manage Facilities &rarr;</span>
-        </Link>
-
-        <Link to="/admin/feedback" className="bento-card">
+          <p className="label">Self-exam steps</p>
+          <p className="value">{stepsCount}</p>
+        </div>
+        <div className="sum-card">
           <span className="corner"></span>
-          <span className="no">04</span>
-          <div>
-            <h4>User Feedback</h4>
-            <p>Review feedback, ratings, and questions submitted by the community.</p>
-          </div>
-          <span className="arrow">Read Feedback &rarr;</span>
-        </Link>
-
-        <Link to="/admin/summary" className="bento-card wide alt">
-          <span className="corner"></span>
-          <span className="no">05</span>
-          <div>
-            <h4>System Summary</h4>
-            <p>View application metrics, total interactions, and diagnostic log placeholders.</p>
-          </div>
-          <span className="arrow">Open Summary &rarr;</span>
-        </Link>
-
-        <Link to="/admin/settings" className="bento-card wide alt2">
-          <span className="corner"></span>
-          <span className="no">06</span>
-          <div>
-            <h4>Admin Settings</h4>
-            <p>Modify local admin password, adjust notification configurations, and manage backup files.</p>
-          </div>
-          <span className="arrow">Configure System &rarr;</span>
-        </Link>
-
+          <p className="label">Pending updates</p>
+          <p className="value flag">{pendingUpdatesCount}</p>
+        </div>
       </div>
 
-      <div className="btn-row">
-        <Link to="/dashboard" className="btn-secondary" style={{ display: 'inline-flex', textDecoration: 'none', alignItems: 'center', justifyContent: 'center' }}>
-          Exit Admin Area
-        </Link>
+      {/* 4. Manage / Quick Access Section */}
+      <div className="section-head">
+        <h3>Manage</h3>
+        <div className="rule"></div>
+        <span className="tag">Four areas</span>
+      </div>
+
+      <div className="action-grid">
+        {quickAccessCards.map((card, idx) => (
+          <div key={idx} className={`act-card ${card.altClass}`}>
+            <span className="corner"></span>
+            <div>
+              <h4>{card.title}</h4>
+              <p>{card.desc}</p>
+              <ul className="act-list">
+                {card.actions.map((act, index) => (
+                  <li key={index}>{act}</li>
+                ))}
+              </ul>
+            </div>
+            <button className="btn-mini" onClick={() => navigate(card.route)}>Open</button>
+          </div>
+        ))}
       </div>
 
     </div>

@@ -1,52 +1,45 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase/firebase';
 import '../styles/education.css';
 
 const Education = () => {
-  const topics = [
-    {
-      no: '01',
-      ic: '?',
-      title: 'What is breast cancer?',
-      description: 'A simple explanation of how it develops and what it means for the body.',
-      classSuffix: ''
-    },
-    {
-      no: '02',
-      ic: 'i',
-      title: 'Risk factors',
-      description: 'What can raise the chance of breast cancer — and what doesn\'t.',
-      classSuffix: 'alt'
-    },
-    {
-      no: '03',
-      ic: '!',
-      title: 'Common symptoms',
-      description: 'Changes worth noticing, explained gently and clearly.',
-      classSuffix: 'alt2'
-    },
-    {
-      no: '04',
-      ic: '✓',
-      title: 'Myths and facts',
-      description: 'Common things people believe about breast cancer — and what\'s actually true.',
-      classSuffix: ''
-    },
-    {
-      no: '05',
-      ic: '+',
-      title: 'Prevention and healthy habits',
-      description: 'Everyday habits that support your overall breast health.',
-      classSuffix: 'alt'
-    },
-    {
-      no: '06',
-      ic: '★',
-      title: 'Why early detection matters',
-      description: 'How noticing changes sooner gives you more options, sooner.',
-      classSuffix: 'alt2'
-    }
-  ];
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Sync published articles in real-time
+  useEffect(() => {
+    const colRef = collection(db, 'educationalArticles');
+    const q = query(colRef, where('status', '==', 'Published'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list = [];
+      snapshot.forEach(doc => {
+        list.push({ id: doc.id, ...doc.data() });
+      });
+      // Sort locally by createdAt descending to bypass composite index requirements
+      list.sort((a, b) => {
+        const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 
+                      a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 
+                      new Date(a.createdAt || 0).getTime();
+        const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 
+                      b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 
+                      new Date(b.createdAt || 0).getTime();
+        return (timeB || 0) - (timeA || 0);
+      });
+      setArticles(list);
+      setLoading(false);
+    }, (err) => {
+      console.error("Firestore articles sync error:", err);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const icons = ['?', 'i', '!', '✓', '+', '★'];
+  const colors = ['', 'alt', 'alt2'];
 
   return (
     <div>
@@ -64,28 +57,70 @@ const Education = () => {
       <div className="edu-section-head">
         <h3>Topics</h3>
         <div className="rule" />
-        <span className="tag">Six articles</span>
+        <span className="tag">{loading ? '...' : `${articles.length} articles`}</span>
       </div>
 
       {/* Topics Grid */}
-      <div className="edu-grid">
-        {topics.map((topic) => (
-          <Link
-            key={topic.no}
-            to="/education/article"
-            className={`edu-card ${topic.classSuffix}`}
-          >
-            <span className="corner" />
-            <span className="no">{topic.no}</span>
-            <div className="ic">{topic.ic}</div>
-            <div>
-              <h4>{topic.title}</h4>
-              <p>{topic.description}</p>
-              <span className="read">Read article</span>
+      {loading ? (
+        <div style={{ padding: '40px', textAlign: 'center', opacity: 0.6 }}>Loading articles...</div>
+      ) : articles.length === 0 ? (
+        <div className="empty" style={{ padding: '60px 20px', textAlign: 'center', border: '1.5px dashed var(--line)' }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', margin: '0 0 8px' }}>No articles yet</h3>
+          <p style={{ fontSize: '14px', opacity: 0.65 }}>Check back later for educational breast health updates.</p>
+        </div>
+      ) : (
+        <div className="edu-grid">
+          {articles.map((article, idx) => (
+            <div
+              key={article.id}
+              className={`edu-card ${colors[idx % 3]}`}
+              style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', textDecoration: 'none' }}
+            >
+              <div>
+                <span className="corner" />
+                <span className="no">{(idx + 1).toString().padStart(2, '0')}</span>
+                <div className="ic">{icons[idx % 6]}</div>
+                <div>
+                  <h4 style={{ fontSize: '18px', fontWeight: '600', margin: '0 0 6px' }}>{article.title}</h4>
+                  <p style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', opacity: 0.5, marginBottom: '6px' }}>
+                    {article.category} • {article.readTime}
+                  </p>
+                  <p style={{ opacity: 0.7, fontSize: '13.5px', lineHeight: 1.5 }}>{article.shortDescription}</p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+                {article.articleBody && (
+                  <Link to={`/education/article?id=${article.id}`} className="read" style={{ fontSize: '13px', textDecoration: 'underline', color: 'var(--ink)' }}>
+                    Read article
+                  </Link>
+                )}
+                {article.articleLink && (
+                  <a 
+                    href={article.articleLink} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="btn-mini"
+                    style={{ 
+                      textDecoration: 'none', 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      padding: '6px 12px',
+                      fontSize: '11px',
+                      fontFamily: 'var(--font-mono)',
+                      border: '1.5px solid var(--oxblood)',
+                      color: 'var(--oxblood)'
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Learn More
+                  </a>
+                )}
+              </div>
             </div>
-          </Link>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

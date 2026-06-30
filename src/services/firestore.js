@@ -31,19 +31,67 @@ export const fetchClinics = async () => {
   ];
 };
 
+import { 
+  collection, 
+  addDoc, 
+  getDocs, 
+  doc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  where, 
+  orderBy, 
+  getDoc 
+} from 'firebase/firestore';
+import { db } from '../firebase/firebase';
+
+const REMINDERS_COLL = 'reminders';
+
 // -------------------------
 // 3. REMINDERS
 // -------------------------
 export const fetchReminders = async (userId) => {
   console.log(`Firestore: Fetching reminders for user: ${userId}`);
-  return [
-    { id: 'r1', frequency: 'Monthly', dayOfMonth: 1, enabled: true, time: '08:00' }
-  ];
+  const colRef = collection(db, REMINDERS_COLL);
+  const q = query(colRef, where('userId', '==', userId));
+  const snapshot = await getDocs(q);
+  const list = [];
+  snapshot.forEach(doc => {
+    list.push({ id: doc.id, ...doc.data() });
+  });
+  // Sort locally by date to avoid composite index requirements
+  list.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  return list;
 };
 
-export const updateReminderSettings = async (userId, reminderData) => {
-  console.log(`Firestore: Updating reminder settings for user: ${userId}`, reminderData);
-  return { success: true };
+export const saveReminder = async (reminderId, reminderData) => {
+  console.log(`Firestore: Saving/Updating reminder for: ${reminderId}`, reminderData);
+  const colRef = collection(db, REMINDERS_COLL);
+  if (reminderId && !reminderId.toString().startsWith('temp-')) {
+    const docRef = doc(db, REMINDERS_COLL, reminderId);
+    await updateDoc(docRef, reminderData);
+    return reminderId;
+  } else {
+    const docRef = await addDoc(colRef, reminderData);
+    return docRef.id;
+  }
+};
+
+export const deleteReminder = async (reminderId) => {
+  console.log(`Firestore: Deleting reminder: ${reminderId}`);
+  const docRef = doc(db, REMINDERS_COLL, reminderId);
+  await deleteDoc(docRef);
+};
+
+export const fetchAllReminders = async () => {
+  console.log("Firestore: Fetching all system reminders (Admin)");
+  const colRef = collection(db, REMINDERS_COLL);
+  const snapshot = await getDocs(colRef);
+  const list = [];
+  snapshot.forEach(doc => {
+    list.push({ id: doc.id, ...doc.data() });
+  });
+  return list;
 };
 
 // -------------------------

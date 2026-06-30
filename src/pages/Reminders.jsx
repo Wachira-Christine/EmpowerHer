@@ -1,32 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { fetchReminders, saveReminder, deleteReminder } from '../services/firestore';
 import '../styles/reminders.css';
 
 const Reminders = () => {
-  // Pre-populated placeholder reminders
-  const [reminders, setReminders] = useState([
-    {
-      id: 1,
-      title: 'Monthly self-check',
-      type: 'Monthly self-check',
-      date: '2026-07-12',
-      time: '20:00',
-      repeat: 'Monthly',
-      note: 'Do this in a private and comfortable place.',
-      notifyPreference: ['In-app'],
-      status: 'Active'
-    },
-    {
-      id: 2,
-      title: 'Clinic follow-up',
-      type: 'Clinic appointment',
-      date: '2026-07-20',
-      time: '10:00',
-      repeat: 'Once',
-      note: 'Visit the health facility for professional consultation.',
-      notifyPreference: ['In-app'],
-      status: 'Active'
-    }
-  ]);
+  const { user } = useAuth();
+  
+  // Reminders list state
+  const [reminders, setReminders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // Form states
   const [title, setTitle] = useState('');
@@ -44,6 +26,22 @@ const Reminders = () => {
   // Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [reminderToDelete, setReminderToDelete] = useState(null);
+
+  // Fetch reminders on load
+  useEffect(() => {
+    if (user) {
+      setLoading(true);
+      fetchReminders(user.uid)
+        .then(data => {
+          setReminders(data);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error("Error loading user reminders:", err);
+          setLoading(false);
+        });
+    }
+  }, [user]);
 
   // Helpers to display date nicely
   const formatDate = (dateStr) => {
@@ -70,48 +68,52 @@ const Reminders = () => {
   };
 
   // Form handlers
-  const handleSaveReminder = (e) => {
+  const handleSaveReminder = async (e) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || !user) return;
 
+    const emailNotification = notifyPreference.includes('Email/SMS');
+
+    const payload = {
+      userId: user.uid,
+      userEmail: user.email || '',
+      userName: user.displayName || 'User',
+      title,
+      type,
+      date,
+      time,
+      repeat,
+      note,
+      notifyPreference,
+      status,
+      emailNotification,
+      lastSent: editingId ? (reminders.find(r => r.id === editingId)?.lastSent || null) : null,
+      nextReminder: date, // initially matches date
+      deliveryStatus: editingId ? (reminders.find(r => r.id === editingId)?.deliveryStatus || 'Pending') : 'Pending'
+    };
+
+    // Optimistic UI updates
+    const prevReminders = [...reminders];
     if (editingId) {
-      // Edit mode
-      const updated = reminders.map((r) => {
-        if (r.id === editingId) {
-          return {
-            ...r,
-            title,
-            type,
-            date,
-            time,
-            repeat,
-            note,
-            notifyPreference,
-            status
-          };
-        }
-        return r;
-      });
-      setReminders(updated);
+      setReminders(reminders.map(r => r.id === editingId ? { ...payload, id: editingId } : r));
       setEditingId(null);
     } else {
-      // Create mode
-      const newReminder = {
-        id: Date.now(),
-        title,
-        type,
-        date,
-        time,
-        repeat,
-        note,
-        notifyPreference,
-        status
-      };
-      setReminders([...reminders, newReminder]);
+      const tempId = `temp-${Date.now()}`;
+      setReminders([...reminders, { ...payload, id: tempId }]);
     }
 
-    // Reset form
     resetForm();
+
+    try {
+      const savedId = await saveReminder(editingId, payload);
+      // Replace temp ID with actual firestore ID if created
+      if (!editingId) {
+        setReminders(prev => prev.map(r => r.id.toString().startsWith('temp-') ? { ...r, id: savedId } : r));
+      }
+    } catch (err) {
+      console.error("Error saving reminder:", err);
+      setReminders(prevReminders); // Rollback
+    }
   };
 
   const handleEditClick = (reminder) => {
@@ -126,10 +128,22 @@ const Reminders = () => {
     setStatus(reminder.status);
   };
 
-  const handleToggleStatus = (id) => {
+  const handleToggleStatus = async (id) => {
+    const reminder = reminders.find(r => r.id === id);
+    if (!reminder) return;
+    const nextStatus = reminder.status === 'Active' ? 'Off' : 'Active';
+    
+    // Optimistic update
     setReminders(reminders.map(r => 
-      r.id === id ? { ...r, status: r.status === 'Active' ? 'Off' : 'Active' } : r
+      r.id === id ? { ...r, status: nextStatus } : r
     ));
+
+    try {
+      await saveReminder(id, { status: nextStatus });
+    } catch (err) {
+      console.error(err);
+      setReminders(reminders); // rollback on error
+    }
   };
 
   const handleDeleteTrigger = (reminder) => {
@@ -137,11 +151,20 @@ const Reminders = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (reminderToDelete) {
+      const prevReminders = [...reminders];
       setReminders(reminders.filter(r => r.id !== reminderToDelete.id));
       setShowDeleteModal(false);
+      const targetId = reminderToDelete.id;
       setReminderToDelete(null);
+
+      try {
+        await deleteReminder(targetId);
+      } catch (err) {
+        console.error(err);
+        setReminders(prevReminders); // Rollback
+      }
     }
   };
 
@@ -198,22 +221,22 @@ const Reminders = () => {
         <div className="sum-card">
           <span className="corner"></span>
           <p className="label">Active reminders</p>
-          <p className="value">{activeCount}</p>
+          <p className="value">{loading ? '...' : activeCount}</p>
         </div>
         <div className="sum-card alt">
           <span className="corner"></span>
           <p className="label">Next reminder</p>
-          <p className="value" style={{ fontSize: '17px' }}>{nextReminderText}</p>
+          <p className="value" style={{ fontSize: '17px' }}>{loading ? '...' : nextReminderText}</p>
         </div>
         <div className="sum-card alt2">
           <span className="corner"></span>
           <p className="label">Monthly self-check</p>
-          <p className="value" style={{ fontSize: '17px' }}>{monthlyCheckText}</p>
+          <p className="value" style={{ fontSize: '17px' }}>{loading ? '...' : monthlyCheckText}</p>
         </div>
         <div className="sum-card">
           <span className="corner"></span>
           <p className="label">Clinic follow-up</p>
-          <p className="value" style={{ fontSize: '17px', opacity: clinicFollowupText === 'Not set' ? 0.55 : 1 }}>{clinicFollowupText}</p>
+          <p className="value" style={{ fontSize: '17px', opacity: clinicFollowupText === 'Not set' ? 0.55 : 1 }}>{loading ? '...' : clinicFollowupText}</p>
         </div>
       </div>
 
@@ -338,7 +361,7 @@ const Reminders = () => {
                       type="checkbox" 
                       checked={notifyPreference.includes('Email/SMS')} 
                       onChange={() => handleNotifyCheckboxChange('Email/SMS')} 
-                    /> Email/SMS
+                    /> Email Reminder
                   </label>
                 </div>
               </div>
@@ -383,7 +406,9 @@ const Reminders = () => {
             <span className="tag">{reminders.length} total</span>
           </div>
 
-          {reminders.length === 0 ? (
+          {loading ? (
+            <div style={{ padding: '20px', textAlign: 'center', opacity: 0.6 }}>Loading reminders...</div>
+          ) : reminders.length === 0 ? (
             <div className="empty">
               <h3>No reminders yet.</h3>
               <p>Set a reminder to help make breast self-checks part of your routine.</p>
@@ -391,7 +416,7 @@ const Reminders = () => {
             </div>
           ) : (
             reminders.map((rem, idx) => (
-              <div key={rem.id} className={`rem-card ${idx % 2 === 1 ? 'alt' : ''}`}>
+              <div key={rem.id} className={`rem-card ${idx % 2 === 1 ? 'alt' : ''}`} style={{ opacity: rem.id.toString().startsWith('temp-') ? 0.6 : 1 }}>
                 <span className="corner"></span>
                 <div className="rem-top">
                   <p className="rem-title">{rem.title}</p>
@@ -404,14 +429,20 @@ const Reminders = () => {
                   <span>{formatDate(rem.date)}, {formatTime(rem.time)}</span>
                   <span>Repeats {rem.repeat.toLowerCase()}</span>
                 </div>
+                {rem.emailNotification && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--coral)', marginTop: '4px' }}>
+                    <span>📧 Email notification ON</span>
+                    {rem.deliveryStatus && <span style={{ opacity: 0.6 }}>({rem.deliveryStatus})</span>}
+                  </div>
+                )}
                 <p className="rem-note">{rem.note}</p>
                 
                 <div className="rem-actions">
-                  <button className="btn-mini primary" onClick={() => handleEditClick(rem)}>Edit</button>
-                  <button className="btn-mini" onClick={() => handleToggleStatus(rem.id)}>
+                  <button className="btn-mini primary" onClick={() => handleEditClick(rem)} disabled={rem.id.toString().startsWith('temp-')}>Edit</button>
+                  <button className="btn-mini" onClick={() => handleToggleStatus(rem.id)} disabled={rem.id.toString().startsWith('temp-')}>
                     {rem.status === 'Active' ? 'Disable' : 'Enable'}
                   </button>
-                  <button className="btn-mini danger" onClick={() => handleDeleteTrigger(rem)}>Delete</button>
+                  <button className="btn-mini danger" onClick={() => handleDeleteTrigger(rem)} disabled={rem.id.toString().startsWith('temp-')}>Delete</button>
                 </div>
               </div>
             ))

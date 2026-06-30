@@ -16,13 +16,11 @@ const AdminSidebar = () => {
   };
 
   const sidebarItems = [
-    { path: '/admin', no: '01', label: 'Admin Dashboard' },
-    { path: '/admin/content', no: '02', label: 'Manage Content' },
-    { path: '/admin/self-exam-guide', no: '03', label: 'Manage Self-Exam' },
-    { path: '/admin/facilities', no: '04', label: 'Manage Clinics' },
-    { path: '/admin/feedback', no: '05', label: 'User Feedback' },
-    { path: '/admin/summary', no: '06', label: 'System Summary' },
-    { path: '/admin/settings', no: '07', label: 'Admin Settings' }
+    { path: '/admin', no: 'A1', label: 'Admin dashboard' },
+    { path: '/admin/content', no: 'A2', label: 'Manage content' },
+    { path: '/admin/self-exam-guide', no: 'A3', label: 'Self-exam guide' },
+    { path: '/admin/facilities', no: 'A4', label: 'Facilities' },
+    { path: '/admin/settings', no: 'A5', label: 'Admin settings' }
   ];
 
   return (
@@ -39,7 +37,7 @@ const AdminSidebar = () => {
       <ul className="toc-list" style={{ listStyle: 'none', padding: 0, margin: '0 0 auto', display: 'flex', flexDirection: 'column' }}>
         {sidebarItems.map((item) => (
           <React.Fragment key={item.path}>
-            {item.no === '07' && (
+            {item.no === '←' && (
               <div className="sep" style={{ height: '1px', backgroundColor: 'var(--line)', margin: '14px 0' }} />
             )}
             <li style={{ marginBottom: '2px' }}>

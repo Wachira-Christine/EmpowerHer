@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EmpowerHer — Admin Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F8EEF0; --paper-deep:#F0DCE3; --ink:#241318; --oxblood:#7A1638; --oxblood-deep:#530F26;
+    --coral:#E0356F; --rose:#E6AFC3; --mustard:#B5447A; --success:#3F7A52; --success-bg:#E3EFE6;
+    --amber:#A8722E; --amber-bg:#F3E3CE; --line:rgba(36,19,24,0.16);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;}
+  .app{display:grid;grid-template-columns:230px 1fr;min-height:100vh;max-width:1500px;margin:0 auto;}
+  .toc{border-right:1px solid var(--line);padding:34px 26px 30px;display:flex;flex-direction:column;}
+  .toc-mark{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.12em;color:var(--oxblood);text-transform:uppercase;margin-bottom:6px;}
+  .toc-title{font-family:'Fraunces',serif;font-weight:600;font-size:27px;line-height:1.05;margin:0 0 4px;}
+  .toc-title em{font-style:italic;color:var(--coral);font-weight:500;}
+  .toc-sub{font-size:12px;opacity:.55;margin:0 0 26px;}
+  .toc-rule{border:none;border-top:1px solid var(--line);margin:0 0 18px;}
+  .toc-list{list-style:none;margin:0;padding:0;flex:1;}
+  .toc-list li{margin-bottom:2px;}
+  .toc-list a{display:flex;align-items:baseline;gap:10px;text-decoration:none;color:var(--ink);font-size:14.5px;padding:9px 4px;}
+  .toc-list a .no{font-family:'Space Mono',monospace;font-size:11px;opacity:.4;min-width:18px;}
+  .toc-list a.active{color:var(--oxblood-deep);}
+  .toc-list a.active .no{color:var(--coral);opacity:1;}
+  .toc-list .sep{height:1px;background:var(--line);margin:14px 0;}
+  .toc-foot{font-family:'Space Mono',monospace;font-size:10px;opacity:.45;letter-spacing:.05em;padding-top:18px;border-top:1px solid var(--line);}
+
+  .main{padding:34px 48px 70px;}
+  .eyebrow{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--oxblood);margin:0 0 10px;}
+  .h1{font-family:'Fraunces',serif;font-weight:500;font-size:32px;margin:0 0 8px;letter-spacing:-.01em;}
+  .h1 em{font-style:italic;color:var(--coral);}
+  .dek{font-size:15px;line-height:1.7;opacity:.72;margin:0 0 20px;max-width:640px;}
+
+  .notice{
+    background:repeating-linear-gradient(135deg, var(--paper-deep) 0 10px, var(--paper) 10px 20px);
+    border:1px solid var(--line);border-left:4px solid var(--mustard);padding:14px 18px;font-size:13px;line-height:1.6;margin-bottom:36px;
+  }
+  .notice b{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--oxblood-deep);display:block;margin-bottom:4px;}
+
+  .section-head{display:flex;align-items:baseline;gap:14px;margin:44px 0 20px;}
+  .section-head:first-of-type{margin-top:0;}
+  .section-head h3{font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-size:21px;margin:0;}
+  .section-head .rule{flex:1;border-top:1px solid var(--line);}
+  .section-head .tag{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.08em;opacity:.45;text-transform:uppercase;}
+
+  /* summary cards */
+  .summary-row{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--line);margin-bottom:30px;}
+  .sum-card{padding:20px 16px;border-right:1px solid var(--line);position:relative;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .summary-row .sum-card:last-child{border-right:none;}
+  .sum-card .corner{position:absolute;left:0;top:0;width:12px;height:12px;background:var(--mustard);clip-path:polygon(0 0,100% 0,0 100%);}
+  .sum-card.alt .corner{background:var(--coral);}
+  .sum-card.alt2 .corner{background:var(--oxblood);}
+  .sum-card .label{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;opacity:.5;margin:4px 0 0;order:2;}
+  .sum-card .value{font-family:'Fraunces',serif;font-weight:600;font-size:32px;margin:0;color:var(--oxblood);order:1;}
+  .sum-card .value.flag{color:var(--amber);}
+
+  /* Bento Grid */
+  .bento-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 30px;
+  }
+
+  .bento-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 22px;
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    text-decoration: none;
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .bento-card:hover {
+    background-color: var(--paper-deep);
+  }
+
+  .bento-card.wide {
+    grid-column: span 2;
+  }
+
+  .bento-card .corner {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 12px;
+    height: 12px;
+    background: var(--mustard);
+    clip-path: polygon(0 0, 100% 0, 0 100%);
+  }
+
+  .bento-card.alt .corner {
+    background: var(--coral);
+  }
+
+  .bento-card.alt2 .corner {
+    background: var(--oxblood);
+  }
+
+  .bento-card .no {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--coral);
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    opacity: 0.6;
+  }
+
+  .bento-card h4 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 18px;
+    margin: 0 0 6px;
+  }
+
+  .bento-card p {
+    font-size: 13px;
+    line-height: 1.55;
+    opacity: .68;
+    margin: 0 0 12px;
+  }
+
+  .bento-card .arrow {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--coral);
+    margin-top: 10px;
+    display: block;
+  }
+
+  .act-list{list-style:none;margin:0 0 16px;padding:0;font-size:12.5px;}
+  .act-list li{padding:3px 0;opacity:.7;}
+  .act-list li::before{content:"— ";color:var(--coral);}
+  .btn-mini{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;border:1.5px solid var(--oxblood);color:var(--oxblood);background:transparent;padding:8px 12px;cursor:pointer;}
+
+  /* tables */
+  .table-wrap{border:1px solid var(--line);overflow-x:auto;margin-bottom:12px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px;}
+  th{
+    font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;opacity:.5;
+    text-align:left;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--paper-deep);
+  }
+  td{padding:13px 16px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .pill{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:4px 9px;border-radius:3px;}
+  .pill.pub{background:var(--success-bg);color:var(--success);}
+  .pill.draft{background:var(--paper-deep);color:var(--ink);opacity:.6;}
+  .pill.new{background:var(--amber-bg);color:var(--amber);}
+  .pill.reviewed{background:var(--success-bg);color:var(--success);}
+  .row-actions{display:flex;gap:6px;}
+  .row-actions button{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.04em;text-transform:uppercase;border:1px solid var(--line);background:transparent;padding:6px 9px;cursor:pointer;color:var(--ink);}
+  .row-actions button.danger{border-color:var(--oxblood);color:var(--oxblood);}
+
+  .table-foot{display:flex;justify-content:flex-end;padding:4px 0 32px;}
+  .btn-primary{background:var(--coral);color:#fff;border:none;font-family:'Space Mono',monospace;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;padding:13px 20px;min-height:44px;cursor:pointer;}
+  .btn-primary::after{content:" →";font-family:Inter,sans-serif;}
+
+  /* feedback list */
+  .fb-card{border:1px solid var(--line);padding:16px 18px;margin-bottom:10px;display:flex;justify-content:space-between;gap:16px;align-items:flex-start;}
+  .fb-tag{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--oxblood);margin:0 0 5px;}
+  .fb-comment{font-size:13.5px;opacity:.75;margin:0 0 6px;line-height:1.5;}
+  .fb-meta{font-size:12px;opacity:.5;}
+  .fb-right{text-align:right;flex-shrink:0;}
+
+  @media (max-width:1000px){
+    .summary-row{grid-template-columns:repeat(3,1fr);}
+    .bento-grid{grid-template-columns:1fr 1fr;}
+  }
+  @media (max-width:880px){
+    .app{grid-template-columns:1fr;} .toc{display:none;} .main{padding:26px 20px 50px;}
+    .summary-row{grid-template-columns:1fr 1fr;} .sum-card:nth-child(2n){border-right:none;}
+    .bento-grid{grid-template-columns:1fr;} .bento-card.wide{grid-column:span 1;}
+    .fb-card{flex-direction:column;}
+    .fb-right{text-align:left;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="toc">
+    <div class="toc-mark">No. 06 — vol. I</div>
+    <h1 class="toc-title">Empower<em>Her</em></h1>
+    <p class="toc-sub">Admin panel</p>
+    <hr class="toc-rule">
+    <ul class="toc-list">
+      <li><a href="empowerher-admin.html" class="active"><span class="no">A1</span> Admin dashboard</a></li>
+      <li><a href="empowerher-admin-content.html"><span class="no">A2</span> Manage content</a></li>
+      <li><a href="empowerher-admin-guide.html"><span class="no">A3</span> Self-exam guide</a></li>
+      <li><a href="empowerher-admin-facilities.html"><span class="no">A4</span> Facilities</a></li>
+      <li><a href="empowerher-admin-feedback.html"><span class="no">A5</span> Feedback</a></li>
+      <li><a href="empowerher-admin-summary.html"><span class="no">A6</span> System summary</a></li>
+      <li><a href="empowerher-admin-settings.html"><span class="no">A7</span> Admin settings</a></li>
+      <div class="sep"></div>
+      <li><a href="#">Back to dashboard</a></li>
+    </ul>
+    <div class="toc-foot">EMPOWERHER ADMIN — ED. 2026</div>
+  </aside>
+
+  <main class="main">
+
+    <p class="eyebrow">Admin</p>
+    <h2 class="h1">Admin <em>Dashboard</em></h2>
+    <p class="dek">Manage educational content, clinic information, feedback, and system resources for EmpowerHer.</p>
+
+    <div class="notice">
+      <b>Admin scope</b>
+      Admin actions should support accurate breast health education and safe user guidance. EmpowerHer does not provide diagnosis, risk prediction, or medical decision-making. Admins cannot view private self-check records or personal health notes.
+    </div>
+
+    <div class="section-head"><h3>Overview</h3><div class="rule"></div><span class="tag">System summary</span></div>
+
+    <div class="summary-row">
+      <div class="sum-card"><span class="corner"></span><p class="value">6</p><p class="label">Educational articles</p></div>
+      <div class="sum-card alt"><span class="corner"></span><p class="value">6</p><p class="label">Listed facilities</p></div>
+      <div class="sum-card alt2"><span class="corner"></span><p class="value">12</p><p class="label">Feedback responses</p></div>
+      <div class="sum-card"><span class="corner"></span><p class="value">7</p><p class="label">Self-exam steps</p></div>
+      <div class="sum-card alt"><span class="corner"></span><p class="value flag">3</p><p class="label">Pending updates</p></div>
+    </div>
+
+    <div class="section-head"><h3>Manage</h3><div class="rule"></div><span class="tag">Six areas</span></div>
+
+    <div class="bento-grid">
+      <a href="empowerher-admin-content.html" class="bento-card">
+        <span class="corner"></span>
+        <span class="no">01</span>
+        <div>
+          <h4>Manage Educational Content</h4>
+          <p>Create, view, update, and remove breast health awareness articles shown on the Learn page.</p>
+          <ul class="act-list">
+            <li>Add article</li>
+            <li>View articles</li>
+            <li>Edit article</li>
+            <li>Delete article</li>
+          </ul>
+        </div>
+        <span class="arrow">Edit Library &rarr;</span>
+      </a>
+
+      <a href="empowerher-admin-guide.html" class="bento-card alt">
+        <span class="corner"></span>
+        <span class="no">02</span>
+        <div>
+          <h4>Manage Self-Examination Guide</h4>
+          <p>Update the step-by-step guidance, health notes, and supportive messages used in the guided self-examination page.</p>
+          <ul class="act-list">
+            <li>View guide steps</li>
+            <li>Edit step</li>
+            <li>Update health note</li>
+            <li>Manage tutorial images</li>
+          </ul>
+        </div>
+        <span class="arrow">Configure Guide &rarr;</span>
+      </a>
+
+      <a href="empowerher-admin-facilities.html" class="bento-card alt2">
+        <span class="corner"></span>
+        <span class="no">03</span>
+        <div>
+          <h4>Manage Clinic Directory</h4>
+          <p>Add and update health facilities shown on the Find Clinic page.</p>
+          <ul class="act-list">
+            <li>Add facility</li>
+            <li>View facilities</li>
+            <li>Edit facility</li>
+            <li>Delete outdated facility</li>
+          </ul>
+        </div>
+        <span class="arrow">Manage Facilities &rarr;</span>
+      </a>
+
+      <a href="empowerher-admin-feedback.html" class="bento-card">
+        <span class="corner"></span>
+        <span class="no">04</span>
+        <div>
+          <h4>View User Feedback</h4>
+          <p>Review article feedback, guide feedback, and clinic listing feedback to improve the app.</p>
+          <ul class="act-list">
+            <li>View feedback</li>
+            <li>Filter by type</li>
+            <li>Mark as reviewed</li>
+          </ul>
+        </div>
+        <span class="arrow">Read Feedback &rarr;</span>
+      </a>
+
+      <a href="empowerher-admin-summary.html" class="bento-card wide alt">
+        <span class="corner"></span>
+        <span class="no">05</span>
+        <div>
+          <h4>System Summary</h4>
+          <p>View general, non-sensitive system activity such as number of articles, clinics, and feedback submissions.</p>
+          <ul class="act-list">
+            <li>View summary</li>
+            <li>Export report</li>
+          </ul>
+        </div>
+        <span class="arrow">Open Summary &rarr;</span>
+      </a>
+
+      <a href="empowerher-admin-settings.html" class="bento-card wide alt2">
+        <span class="corner"></span>
+        <span class="no">06</span>
+        <div>
+          <h4>Admin Settings</h4>
+          <p>Manage admin account preferences and basic system settings.</p>
+          <ul class="act-list">
+            <li>View admin profile</li>
+            <li>Change password</li>
+            <li>Log out</li>
+          </ul>
+        </div>
+        <span class="arrow">Configure System &rarr;</span>
+      </a>
+    </div>
+
+    <div class="section-head"><h3>Educational content</h3><div class="rule"></div><span class="tag">Preview</span></div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Article title</th><th>Category</th><th>Status</th><th>Last updated</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td>What is breast cancer?</td><td>Awareness</td><td><span class="pill pub">Published</span></td><td>03 Jun 2026</td>
+            <td><div class="row-actions"><button>View</button><button>Edit</button><button class="danger">Delete</button></div></td></tr>
+          <tr><td>Risk factors</td><td>Awareness</td><td><span class="pill pub">Published</span></td><td>03 Jun 2026</td>
+            <td><div class="row-actions"><button>View</button><button>Edit</button><button class="danger">Delete</button></div></td></tr>
+          <tr><td>Common symptoms</td><td>Awareness</td><td><span class="pill pub">Published</span></td><td>28 May 2026</td>
+            <td><div class="row-actions"><button>View</button><button>Edit</button><button class="danger">Delete</button></div></td></tr>
+          <tr><td>Myths and facts</td><td>Education</td><td><span class="pill draft">Draft</span></td><td>15 May 2026</td>
+            <td><div class="row-actions"><button>View</button><button>Edit</button><button class="danger">Delete</button></div></td></tr>
+          <tr><td>Prevention and healthy habits</td><td>Lifestyle</td><td><span class="pill pub">Published</span></td><td>02 May 2026</td>
+            <td><div class="row-actions"><button>View</button><button>Edit</button><button class="danger">Delete</button></div></td></tr>
+          <tr><td>Why early detection matters</td><td>Awareness</td><td><span class="pill pub">Published</span></td><td>02 May 2026</td>
+            <td><div class="row-actions"><button>View</button><button>Edit</button><button class="danger">Delete</button></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-foot"><button class="btn-primary">Add new article</button></div>
+
+    <div class="section-head"><h3>Clinic directory</h3><div class="rule"></div><span class="tag">Preview</span></div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Facility name</th><th>County</th><th>Services</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td>Kenyatta National Hospital</td><td>Nairobi</td><td>Screening, consultation, referral</td><td>020 272 6300</td><td><span class="pill pub">Active</span></td>
+            <td><div class="row-actions"><button>View</button><button>Edit</button><button class="danger">Delete</button></div></td></tr>
+          <tr><td>Nairobi Women's Hospital</td><td>Nairobi</td><td>Consultation, screening referral</td><td>On file</td><td><span class="pill pub">Active</span></td>
+            <td><div class="row-actions"><button>View</button><button>Edit</button><button class="danger">Delete</button></div></td></tr>
+          <tr><td>County Referral Hospital</td><td>On file</td><td>General consultation, referral</td><td>On file</td><td><span class="pill draft">Inactive</span></td>
+            <td><div class="row-actions"><button>View</button><button>Edit</button><button class="danger">Delete</button></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-foot"><button class="btn-primary">Add new facility</button></div>
+
+    <div class="section-head"><h3>Feedback</h3><div class="rule"></div><span class="tag">Preview</span></div>
+
+    <div class="fb-card">
+      <div>
+        <p class="fb-tag">Article feedback</p>
+        <p class="fb-comment">"This explained things very clearly, thank you." — on "What is breast cancer?"</p>
+        <p class="fb-meta">Helpful: Yes</p>
+      </div>
+      <div class="fb-right">
+        <span class="pill new">New</span>
+        <div class="row-actions" style="margin-top:8px;"><button>View</button><button>Mark reviewed</button></div>
+      </div>
+    </div>
+
+    <div class="fb-card">
+      <div>
+        <p class="fb-tag">Self-exam guide feedback</p>
+        <p class="fb-comment">"Step 5 was a bit confusing, maybe add a picture." — on guided self-examination</p>
+        <p class="fb-meta">Helpful: Not fully</p>
+      </div>
+      <div class="fb-right">
+        <span class="pill reviewed">Reviewed</span>
+        <div class="row-actions" style="margin-top:8px;"><button>View</button></div>
+      </div>
+    </div>
+
+    <div class="fb-card">
+      <div>
+        <p class="fb-tag">Clinic directory feedback</p>
+        <p class="fb-comment">"Phone number for County Referral Hospital didn't work." — on facility listing</p>
+        <p class="fb-meta">Helpful: No</p>
+      </div>
+      <div class="fb-right">
+        <span class="pill new">New</span>
+        <div class="row-actions" style="margin-top:8px;"><button>View</button><button>Mark reviewed</button></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>

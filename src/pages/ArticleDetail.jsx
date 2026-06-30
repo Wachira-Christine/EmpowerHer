@@ -1,12 +1,101 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { doc, getDoc, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { db } from '../firebase/firebase';
 import '../styles/education.css';
 
 const ArticleDetail = () => {
-  const handleFeedback = (isHelpful) => {
-    // Placeholder click handler
-    alert(`Feedback recorded: ${isHelpful ? 'Helpful' : 'Not helpful'} (Placeholder only)`);
+  const [searchParams] = useSearchParams();
+  const articleId = searchParams.get('id');
+
+  const [article, setArticle] = useState(null);
+  const [nextArticle, setNextArticle] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
+  useEffect(() => {
+    const loadArticleData = async () => {
+      if (!articleId) return;
+      setLoading(true);
+      setFeedbackSubmitted(false);
+      try {
+        // Load active article from educationalArticles collection
+        const docRef = doc(db, 'educationalArticles', articleId);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists() && docSnap.data().status === 'Published') {
+          const activeData = { id: docSnap.id, ...docSnap.data() };
+          setArticle(activeData);
+
+          // Fetch all published articles to find "Next Up" article dynamically
+          const colRef = collection(db, 'educationalArticles');
+          const q = query(colRef, where('status', '==', 'Published'));
+          const snapshot = await getDocs(q);
+          const list = [];
+          snapshot.forEach(d => {
+            list.push({ id: d.id, ...d.data() });
+          });
+
+          // Sort list locally
+          list.sort((a, b) => {
+            const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 
+                          a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 
+                          new Date(a.createdAt || 0).getTime();
+            const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 
+                          b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 
+                          new Date(b.createdAt || 0).getTime();
+            return (timeB || 0) - (timeA || 0);
+          });
+
+          // Find current index
+          const currIdx = list.findIndex(item => item.id === articleId);
+          if (list.length > 1 && currIdx !== -1) {
+            const nextIdx = (currIdx + 1) % list.length;
+            setNextArticle(list[nextIdx]);
+          } else {
+            setNextArticle(null);
+          }
+        }
+      } catch (err) {
+        console.error("Error loading article detail:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadArticleData();
+  }, [articleId]);
+
+  const handleFeedbackSubmit = async (isHelpful) => {
+    if (!article) return;
+    try {
+      await addDoc(collection(db, 'userFeedback'), {
+        tag: 'Article feedback',
+        comment: `User marked article "${article.title}" as ${isHelpful ? 'helpful' : 'not helpful'}.`,
+        meta: `Helpful: ${isHelpful ? 'Yes' : 'No'}`,
+        status: 'New',
+        reviewed: false,
+        createdAt: new Date().toISOString()
+      });
+      setFeedbackSubmitted(true);
+    } catch (err) {
+      console.error("Error saving user feedback:", err);
+    }
   };
+
+  if (loading) {
+    return <div style={{ padding: '40px', textAlign: 'center', opacity: 0.6 }}>Loading article content...</div>;
+  }
+
+  if (!article) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center' }}>
+        <h3>Article not found</h3>
+        <p>The requested educational topic does not exist or is unpublished.</p>
+        <Link to="/education" className="edu-article-back">Back to topics</Link>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: '680px' }}>
@@ -17,42 +106,45 @@ const ArticleDetail = () => {
 
       {/* Article Header info */}
       <div>
-        <span className="edu-article-tag">Article 01 of 06</span>
+        <span className="edu-article-tag">{article.category}</span>
         <h1 className="edu-article-title">
-          What is breast <em>cancer?</em>
+          {article.title}
         </h1>
-        <p className="edu-article-meta">4 minute read · Available offline</p>
+        <p className="edu-article-meta">
+          {article.readTime || '4 minute read'} · Available offline
+        </p>
       </div>
 
-      {/* Article Icon */}
       <div className="edu-article-ic-hero">?</div>
 
       {/* Article Body */}
-      <article className="edu-article-body">
-        <p>
-          Breast cancer happens when cells in the breast begin to grow in an unusual way and form a lump, called a tumour. It can affect anyone with breast tissue, though it is far more common in women.
-        </p>
+      {article.articleBody && (
+        <article 
+          className="edu-article-body" 
+          dangerouslySetInnerHTML={{ __html: article.articleBody }}
+        />
+      )}
 
-        <h2>How it starts</h2>
-        <p>
-          Our bodies are always making new cells to replace old ones. Sometimes, a small number of cells grow out of control instead of following the body's usual pattern. Over time, this can form a lump that wasn't there before.
-        </p>
+      {/* Short Description banner */}
+      <div style={{ border: '1px solid var(--line)', background: 'var(--paper-deep)', padding: '20px', margin: '20px 0', fontSize: '14.5px', lineStyle: 'italic' }}>
+        <strong>Summary:</strong>
+        <p style={{ margin: '6px 0 0', opacity: 0.8 }}>{article.shortDescription}</p>
+      </div>
 
-        {/* Pull Quote */}
-        <div className="edu-article-pull">
-          Most lumps found during a self-check are not cancer — but every change is worth having looked at by a professional.
+      {/* Learn More Button */}
+      {article.articleLink && (
+        <div style={{ margin: '24px 0' }}>
+          <a 
+            href={article.articleLink} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="btn-primary"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+          >
+            Learn More
+          </a>
         </div>
-
-        <h2>Why checking matters</h2>
-        <p>
-          Breast self-checks don't diagnose cancer. What they do is help you learn what's normal for your own body, so that if something changes, you notice it early — while it's usually easiest to treat.
-        </p>
-
-        <h2>What happens next, if something is noticed</h2>
-        <p>
-          If you or a healthcare worker notice a change, the next step is usually a simple clinical exam, and sometimes an imaging test like an ultrasound or mammogram. These tests are how a diagnosis is actually made — not a self-check alone.
-        </p>
-      </article>
+      )}
 
       {/* Health Note Banner */}
       <div className="edu-article-notice">
@@ -62,20 +154,28 @@ const ArticleDetail = () => {
 
       {/* Feedback section */}
       <div className="edu-article-feedback">
-        <p>Was this article helpful?</p>
-        <div className="btns">
-          <button aria-label="Helpful" onClick={() => handleFeedback(true)}>👍</button>
-          <button aria-label="Not helpful" onClick={() => handleFeedback(false)}>👎</button>
-        </div>
+        {feedbackSubmitted ? (
+          <p style={{ color: 'var(--success)', fontWeight: 'bold' }}>✓ Thank you for your feedback!</p>
+        ) : (
+          <>
+            <p>Was this article helpful?</p>
+            <div className="btns">
+              <button aria-label="Helpful" onClick={() => handleFeedbackSubmit(true)}>👍</button>
+              <button aria-label="Not helpful" onClick={() => handleFeedbackSubmit(false)}>👎</button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Next Up Card */}
-      <div className="edu-article-next-up">
-        <span className="corner" />
-        <p className="label">Next article</p>
-        <h4>Risk factors</h4>
-        <Link to="/education/article">Continue reading →</Link>
-      </div>
+      {nextArticle && (
+        <div className="edu-article-next-up">
+          <span className="corner" />
+          <p className="label">Next article</p>
+          <h4>{nextArticle.title}</h4>
+          <Link to={`/education/article?id=${nextArticle.id}`}>Continue reading →</Link>
+        </div>
+      )}
     </div>
   );
 };
