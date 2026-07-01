@@ -8,8 +8,8 @@
 
 .search-row {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  flex-wrap: wrap;
   margin-bottom: 14px;
 }
 
@@ -104,7 +104,7 @@
 
 .summary-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 1fr 1fr;
   border: 1px solid var(--line);
   margin-bottom: 36px;
 }
@@ -112,12 +112,16 @@
 .sum-card {
   padding: 18px 16px;
   border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   position: relative;
   background-color: var(--paper);
 }
 
-.summary-row .sum-card:last-child {
+.sum-card:nth-child(2n) {
   border-right: none;
+}
+.summary-row .sum-card:nth-last-child(-n+2) {
+  border-bottom: none;
 }
 
 .sum-card .corner {
@@ -156,23 +160,18 @@
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   border: 1px solid var(--line);
 }
 
 .fac-card {
   position: relative;
   padding: 22px;
-  border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   background-color: var(--paper);
 }
 
-.grid .fac-card:nth-child(2n) {
-  border-right: none;
-}
-
-.grid .fac-card:nth-last-child(-n+2) {
+.grid .fac-card:last-child {
   border-bottom: none;
 }
 
@@ -263,8 +262,8 @@
 /* detail view */
 .detail-card {
   border: 1px solid var(--line);
-  padding: 30px;
-  max-width: 600px;
+  padding: 22px 18px;
+  max-width: none;
   background-color: var(--paper);
 }
 
@@ -369,24 +368,4 @@
   opacity: 1;
 }
 
-@media (max-width: 880px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
-  .fac-card {
-    border-right: none !important;
-  }
-  .search-row {
-    flex-direction: column;
-  }
-  .detail-card {
-    padding: 22px 18px;
-    max-width: none;
-  }
-  .summary-row {
-    grid-template-columns: 1fr 1fr;
-  }
-  .sum-card:nth-child(2n) {
-    border-right: none;
-  }
-}
+/* Responsive Overrides Removed for Mobile App Shell */

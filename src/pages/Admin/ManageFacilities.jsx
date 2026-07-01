@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
-import { db } from '../../firebase/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../../firebase/firebase';
 import { kenyaCounties } from '../../constants/kenyaCounties';
 import '../../styles/admin.css';
 
@@ -34,6 +35,10 @@ const ManageFacilities = () => {
   const [formNotes, setFormNotes] = useState('');
   const [formMapLink, setFormMapLink] = useState('');
   const [formStatus, setFormStatus] = useState('Active');
+  const [formImageUrl, setFormImageUrl] = useState('');
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   // Modal States
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -124,21 +129,30 @@ const ManageFacilities = () => {
       return;
     }
 
-    const payload = {
-      facilityName: formName,
-      county: formCounty,
-      facilityType: formType,
-      fullAddress: formAddress,
-      phoneNumber: formPhone,
-      openingHours: formOpeningHours,
-      servicesOffered: formServices,
-      notesBeforeVisiting: formNotes,
-      mapLink: formMapLink,
-      status: formStatus,
-      updatedBy: user?.email || user?.uid || 'Admin'
-    };
-
+    setIsUploading(true);
     try {
+      let finalImageUrl = formImageUrl;
+      if (imageFile) {
+        const fileRef = ref(storage, `clinicFacilities/${user.uid}/${Date.now()}-${imageFile.name}`);
+        const snapshot = await uploadBytes(fileRef, imageFile);
+        finalImageUrl = await getDownloadURL(snapshot.ref);
+      }
+
+      const payload = {
+        facilityName: formName,
+        county: formCounty,
+        facilityType: formType,
+        fullAddress: formAddress,
+        phoneNumber: formPhone,
+        openingHours: formOpeningHours,
+        servicesOffered: formServices,
+        notesBeforeVisiting: formNotes,
+        mapLink: formMapLink,
+        imageUrl: finalImageUrl,
+        status: formStatus,
+        updatedBy: user?.email || user?.uid || 'Admin'
+      };
+
       if (editingId) {
         const docRef = doc(db, 'clinicFacilities', editingId);
         await updateDoc(docRef, {
@@ -160,7 +174,26 @@ const ManageFacilities = () => {
     } catch (err) {
       console.error(err);
       showToast("Failed to save facility", "error");
+    } finally {
+      setIsUploading(false);
     }
+  };
+
+  const handleImageSelection = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/jpg'].includes(file.type)) {
+      showToast("Please upload a valid image file.", "error");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("Image is too large. Please upload an image under 5MB.", "error");
+      return;
+    }
+
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
   };
 
   const handleEditClick = (fac) => {
@@ -175,6 +208,9 @@ const ManageFacilities = () => {
     setFormNotes(fac.notesBeforeVisiting || '');
     setFormMapLink(fac.mapLink || '');
     setFormStatus(fac.status || 'Active');
+    setFormImageUrl(fac.imageUrl || '');
+    setImageFile(null);
+    setImagePreview('');
     setView('form');
   };
 
@@ -226,6 +262,9 @@ const ManageFacilities = () => {
     setFormNotes('');
     setFormMapLink('');
     setFormStatus('Active');
+    setFormImageUrl('');
+    setImageFile(null);
+    setImagePreview('');
   };
 
   const getFilteredFacilities = () => {
@@ -429,6 +468,32 @@ const ManageFacilities = () => {
               />
             </div>
 
+            <div className="field">
+              <label>Icon / Image</label>
+              <input 
+                type="file" 
+                accept=".jpg,.jpeg,.png,.webp" 
+                onChange={handleImageSelection}
+                style={{ marginBottom: '10px' }}
+              />
+              <label style={{ fontSize: '13px', opacity: 0.7, fontWeight: 'normal', margin: '5px 0' }}>Or paste image URL</label>
+              <input 
+                type="text" 
+                value={formImageUrl}
+                onChange={(e) => setFormImageUrl(e.target.value)}
+                placeholder="https://example.com/illustration.png"
+              />
+              <div className="icon-ph" style={{ marginTop: '10px', height: 'auto', minHeight: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', border: '1px dashed var(--line)' }}>
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Preview" style={{ maxHeight: '150px', maxWidth: '100%' }} />
+                ) : formImageUrl ? (
+                  <img src={formImageUrl} alt="Preview" style={{ maxHeight: '150px', maxWidth: '100%' }} />
+                ) : (
+                  "Illustration placeholder — upload image"
+                )}
+              </div>
+            </div>
+
             <div className="field-row">
               <div className="field">
                 <label>Map link</label>
@@ -465,8 +530,10 @@ const ManageFacilities = () => {
             </div>
 
             <div className="form-actions">
-              <button type="submit" className="btn-primary">Save facility</button>
-              <button type="button" className="btn-ghost" onClick={() => { resetForm(); setView('list'); }}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={isUploading}>
+                {isUploading ? 'Saving...' : 'Save facility'}
+              </button>
+              <button type="button" className="btn-ghost" onClick={() => { resetForm(); setView('list'); }} disabled={isUploading}>Cancel</button>
             </div>
           </form>
         </div>
@@ -493,6 +560,12 @@ const ManageFacilities = () => {
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', opacity: 0.5 }}>
               County: {viewingFacility.county} • Status: {viewingFacility.status}
             </p>
+
+            {viewingFacility.imageUrl && (
+              <div style={{ marginTop: '14px', textAlign: 'center' }}>
+                <img src={viewingFacility.imageUrl} alt={viewingFacility.facilityName} style={{ maxHeight: '200px', maxWidth: '100%', borderRadius: '8px' }} />
+              </div>
+            )}
 
             <div style={{ border: '1px solid var(--line)', background: 'var(--paper-deep)', padding: '12px', margin: '14px 0', fontSize: '13.5px' }}>
               <p style={{ margin: '0 0 6px' }}><strong>Physical Address:</strong> {viewingFacility.fullAddress || 'N/A'}</p>

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../../firebase/firebase';
 import { 
   fetchArticles, 
   addArticle, 
@@ -38,6 +39,10 @@ const ManageContent = () => {
   const [formArticleLink, setFormArticleLink] = useState('');
   const [formStatus, setFormStatus] = useState('Draft');
   const [formAuthorName, setFormAuthorName] = useState('');
+  const [formImageUrl, setFormImageUrl] = useState('');
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   // Modals state
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -134,19 +139,29 @@ const ManageContent = () => {
       return;
     }
 
-    const payload = {
-      title: formTitle,
-      category: formCategory,
-      readTime: formReadTime,
-      shortDescription: formShortDescription,
-      articleBody: formArticleBody,
-      articleLink: formArticleLink,
-      status: formStatus,
-      authorId: user?.uid || 'admin-user',
-      authorName: formAuthorName || user?.email || 'Admin'
-    };
+    setIsUploading(true);
 
     try {
+      let finalImageUrl = formImageUrl;
+      if (imageFile) {
+        const fileRef = ref(storage, `educationalArticles/${user.uid}/${Date.now()}-${imageFile.name}`);
+        const snapshot = await uploadBytes(fileRef, imageFile);
+        finalImageUrl = await getDownloadURL(snapshot.ref);
+      }
+
+      const payload = {
+        title: formTitle,
+        category: formCategory,
+        readTime: formReadTime,
+        shortDescription: formShortDescription,
+        articleBody: formArticleBody,
+        articleLink: formArticleLink,
+        imageUrl: finalImageUrl,
+        status: formStatus,
+        authorId: user?.uid || 'admin-user',
+        authorName: formAuthorName || user?.email || 'Admin'
+      };
+
       if (editingId) {
         await updateArticle(editingId, payload);
         showToast("Article updated successfully!");
@@ -159,7 +174,26 @@ const ManageContent = () => {
     } catch (err) {
       console.error(err);
       showToast("Failed to save article", "error");
+    } finally {
+      setIsUploading(false);
     }
+  };
+
+  const handleImageSelection = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/jpg'].includes(file.type)) {
+      showToast("Please upload a valid image file.", "error");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("Image is too large. Please upload an image under 5MB.", "error");
+      return;
+    }
+
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
   };
 
   const handleEditClick = (article) => {
@@ -172,6 +206,9 @@ const ManageContent = () => {
     setFormArticleLink(article.articleLink || '');
     setFormStatus(article.status || 'Draft');
     setFormAuthorName(article.authorName || '');
+    setFormImageUrl(article.imageUrl || '');
+    setImageFile(null);
+    setImagePreview('');
     setView('form');
   };
 
@@ -221,6 +258,9 @@ const ManageContent = () => {
     setFormArticleLink('');
     setFormStatus('Draft');
     setFormAuthorName(user?.email || 'Admin');
+    setFormImageUrl('');
+    setImageFile(null);
+    setImagePreview('');
   };
 
   // Filters logic
@@ -415,6 +455,32 @@ const ManageContent = () => {
             </div>
 
             <div className="field">
+              <label>Icon / Image</label>
+              <input 
+                type="file" 
+                accept=".jpg,.jpeg,.png,.webp" 
+                onChange={handleImageSelection}
+                style={{ marginBottom: '10px' }}
+              />
+              <label style={{ fontSize: '13px', opacity: 0.7, fontWeight: 'normal', margin: '5px 0' }}>Or paste image URL</label>
+              <input 
+                type="text" 
+                value={formImageUrl}
+                onChange={(e) => setFormImageUrl(e.target.value)}
+                placeholder="https://example.com/illustration.png"
+              />
+              <div className="icon-ph" style={{ marginTop: '10px', height: 'auto', minHeight: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', border: '1px dashed var(--line)' }}>
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Preview" style={{ maxHeight: '150px', maxWidth: '100%' }} />
+                ) : formImageUrl ? (
+                  <img src={formImageUrl} alt="Preview" style={{ maxHeight: '150px', maxWidth: '100%' }} />
+                ) : (
+                  "Illustration placeholder — upload image"
+                )}
+              </div>
+            </div>
+
+            <div className="field">
               <label>Status</label>
               <div className="choice-row">
                 <label className="choice">
@@ -449,8 +515,10 @@ const ManageContent = () => {
             </div>
 
             <div className="form-actions">
-              <button type="submit" className="btn-primary">Save Article</button>
-              <button type="button" className="btn-ghost" onClick={() => { resetForm(); setView('list'); }}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={isUploading}>
+                {isUploading ? 'Saving...' : 'Save Article'}
+              </button>
+              <button type="button" className="btn-ghost" onClick={() => { resetForm(); setView('list'); }} disabled={isUploading}>Cancel</button>
             </div>
           </form>
         </div>
@@ -477,6 +545,12 @@ const ManageContent = () => {
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', opacity: 0.5 }}>
               {selectedArticle.readTime} • Author: {selectedArticle.authorName} • Status: {selectedArticle.status}
             </p>
+
+            {selectedArticle.imageUrl && (
+              <div style={{ marginTop: '14px', textAlign: 'center' }}>
+                <img src={selectedArticle.imageUrl} alt={selectedArticle.title} style={{ maxHeight: '200px', maxWidth: '100%', borderRadius: '8px' }} />
+              </div>
+            )}
 
             <div style={{ border: '1px solid var(--line)', background: 'var(--paper-deep)', padding: '12px', margin: '14px 0', fontSize: '13.5px' }}>
               <strong>Short Description:</strong>

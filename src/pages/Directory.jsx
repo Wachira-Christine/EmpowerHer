@@ -131,8 +131,14 @@ const Directory = () => {
     } catch (err) {
       if (err.message === 'API_KEY_MISSING') {
         setLocationError("Google Maps API key is missing. Please add it to your environment variables.");
-      } else if (err.message === 'LOCATION_NOT_FOUND') {
+      } else if (err.message === 'LOCATION_NOT_FOUND' || err.message === 'ZERO_RESULTS') {
         setLocationError("Could not find that location. Please try a town, area, or county name.");
+      } else if (err.message === 'REQUEST_DENIED') {
+        setLocationError("Google Maps request was denied. Please check API key restrictions and enabled APIs.");
+      } else if (err.message === 'OVER_QUERY_LIMIT') {
+        setLocationError("Google Maps query limit reached. Please try again later.");
+      } else if (err.message === 'INVALID_REQUEST' || err.message === 'UNKNOWN_ERROR') {
+        setLocationError("Google Maps is temporarily unavailable. Please try again.");
       } else {
         setLocationError("Unable to load nearby facilities. Please try again.");
       }
@@ -160,6 +166,12 @@ const Directory = () => {
         setLocationError("Your browser does not support location access. Please type your location manually.");
       } else if (err.message === 'PERMISSION_DENIED') {
         setLocationError("Location permission was denied. You can type your location instead.");
+      } else if (err.message === 'REQUEST_DENIED') {
+        setLocationError("Google Maps request was denied. Please check API key restrictions and enabled APIs.");
+      } else if (err.message === 'OVER_QUERY_LIMIT') {
+        setLocationError("Google Maps query limit reached. Please try again later.");
+      } else if (err.message === 'INVALID_REQUEST' || err.message === 'UNKNOWN_ERROR') {
+        setLocationError("Google Maps is temporarily unavailable. Please try again.");
       } else {
         setLocationError("Unable to load nearby facilities. Please try again.");
       }

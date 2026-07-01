@@ -59,7 +59,7 @@
 /* summary cards */
 .summary-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 1fr 1fr;
   border: 1px solid var(--line);
   margin-bottom: 40px;
 }
@@ -67,11 +67,15 @@
 .sum-card {
   padding: 20px 18px;
   border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   position: relative;
 }
 
-.summary-row .sum-card:last-child {
+.sum-card:nth-child(2n) {
   border-right: none;
+}
+.summary-row .sum-card:nth-last-child(-n+2) {
+  border-bottom: none;
 }
 
 .sum-card .corner {
@@ -144,7 +148,7 @@
 /* record cards */
 .record-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 0;
   border: 1px solid var(--line);
   margin-bottom: 20px;
@@ -153,15 +157,10 @@
 .record {
   position: relative;
   padding: 22px 22px 20px;
-  border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
 
-.record-grid .record:nth-child(2n) {
-  border-right: none;
-}
-
-.record-grid .record:nth-last-child(-n+2) {
+.record-grid .record:last-child {
   border-bottom: none;
 }
 
@@ -532,30 +531,17 @@ textarea {
   flex: 1;
 }
 
-@media (max-width: 880px) {
-  .summary-row {
-    grid-template-columns: 1fr 1fr;
-  }
-  .sum-card:nth-child(2n) {
-    border-right: none;
-  }
-  .record-grid {
-    grid-template-columns: 1fr;
-  }
-  .record {
-    border-right: none !important;
-  }
-  .detail-card,
-  .form-card {
-    padding: 22px 18px 6px;
-    max-width: none;
-  }
-  .form-actions,
-  .detail-actions {
-    flex-direction: column;
-  }
-  .form-actions button,
-  .detail-actions button {
-    width: 100%;
-  }
+/* Responsive Overrides Removed for Mobile App Shell */
+.detail-card,
+.form-card {
+  padding: 22px 18px 6px;
+  max-width: none;
+}
+.form-actions,
+.detail-actions {
+  flex-direction: column;
+}
+.form-actions button,
+.detail-actions button {
+  width: 100%;
 }

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { doc, getDoc, setDoc, collection, getDocs, addDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, where } from 'firebase/firestore';
-import { db } from '../../firebase/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../../firebase/firebase';
 import '../../styles/admin.css';
 
 const ManageSelfExamGuide = () => {
@@ -30,6 +31,9 @@ const ManageSelfExamGuide = () => {
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formImageUrl, setFormImageUrl] = useState('');
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   // Form states for health note editing
   const [noteText, setNoteText] = useState('');
@@ -217,7 +221,26 @@ const ManageSelfExamGuide = () => {
     setFormTitle(step.title || '');
     setFormDescription(step.description || '');
     setFormImageUrl(step.imageUrl || '');
+    setImageFile(null);
+    setImagePreview('');
     setView('edit');
+  };
+
+  const handleImageSelection = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/jpg'].includes(file.type)) {
+      showToast("Please upload a valid image file.", "error");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("Image is too large. Please upload an image under 5MB.", "error");
+      return;
+    }
+
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
   };
 
   const handleSaveStep = async (e) => {
@@ -226,15 +249,24 @@ const ManageSelfExamGuide = () => {
       showToast("Please fill in all required fields.", "error");
       return;
     }
+    
+    setIsUploading(true);
 
     try {
+      let finalImageUrl = formImageUrl;
+      if (imageFile) {
+        const fileRef = ref(storage, `selfExamGuideImages/${user.uid}/${Date.now()}-${imageFile.name}`);
+        const snapshot = await uploadBytes(fileRef, imageFile);
+        finalImageUrl = await getDownloadURL(snapshot.ref);
+      }
+
       const stepRef = doc(db, 'selfExamGuide', 'steps', 'steps', editingStep.id);
       await updateDoc(stepRef, {
         stepNumber: parseInt(formStepNumber, 10) || editingStep.stepNumber,
         status: formStatus,
         title: formTitle,
         description: formDescription,
-        imageUrl: formImageUrl,
+        imageUrl: finalImageUrl,
         updatedAt: serverTimestamp(),
         updatedBy: user?.email || 'Admin'
       });
@@ -244,6 +276,8 @@ const ManageSelfExamGuide = () => {
     } catch (err) {
       console.error(err);
       showToast("Failed to update guide step", "error");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -436,21 +470,36 @@ const ManageSelfExamGuide = () => {
               </div>
 
               <div className="field">
-                <label>Icon / image placeholder URL</label>
+                <label>Icon / Image</label>
+                <input 
+                  type="file" 
+                  accept=".jpg,.jpeg,.png,.webp" 
+                  onChange={handleImageSelection}
+                  style={{ marginBottom: '10px' }}
+                />
+                <label style={{ fontSize: '13px', opacity: 0.7, fontWeight: 'normal', margin: '5px 0' }}>Or paste image URL</label>
                 <input 
                   type="text" 
                   value={formImageUrl}
                   onChange={(e) => setFormImageUrl(e.target.value)}
                   placeholder="https://example.com/illustration.png"
                 />
-                <div className="icon-ph" style={{ marginTop: '10px' }}>
-                  {formImageUrl ? "Illustration URL defined" : "Illustration placeholder — replace asset"}
+                <div className="icon-ph" style={{ marginTop: '10px', height: 'auto', minHeight: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', border: '1px dashed var(--line)' }}>
+                  {imagePreview ? (
+                    <img src={imagePreview} alt="Preview" style={{ maxHeight: '150px', maxWidth: '100%' }} />
+                  ) : formImageUrl ? (
+                    <img src={formImageUrl} alt="Preview" style={{ maxHeight: '150px', maxWidth: '100%' }} />
+                  ) : (
+                    "Illustration placeholder — upload image"
+                  )}
                 </div>
               </div>
 
               <div className="form-actions">
-                <button type="submit" className="btn-primary">Save changes</button>
-                <button type="button" className="btn-ghost" onClick={() => setView('steps')}>Cancel</button>
+                <button type="submit" className="btn-primary" disabled={isUploading}>
+                  {isUploading ? 'Saving...' : 'Save changes'}
+                </button>
+                <button type="button" className="btn-ghost" onClick={() => setView('steps')} disabled={isUploading}>Cancel</button>
               </div>
             </form>
           </div>
@@ -482,8 +531,12 @@ const ManageSelfExamGuide = () => {
               </span>
             </div>
 
-            <div className="icon-ph" style={{ height: '80px', marginTop: '14px' }}>
-              {viewingStep.imageUrl ? "Asset URL available" : "Illustration placeholder — asset not set"}
+            <div className="icon-ph" style={{ height: 'auto', minHeight: '80px', marginTop: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {viewingStep.imageUrl ? (
+                <img src={viewingStep.imageUrl} alt="Preview" style={{ maxHeight: '150px', maxWidth: '100%' }} />
+              ) : (
+                "Illustration placeholder — asset not set"
+              )}
             </div>
 
             <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>

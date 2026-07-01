@@ -1,9 +1,8 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 
-// Layout Wrappers
 import Layout from '../components/layout/Layout';
-import UserLayout from '../components/layout/UserLayout';
+import UserMobileLayout from '../components/layout/UserMobileLayout';
 import AdminLayout from '../components/layout/AdminLayout';
 
 // Public Pages
@@ -50,8 +49,8 @@ const AppRoutes = () => {
         <Route path="register" element={<Register />} />
         <Route path="admin/login" element={<AdminLogin />} />
         
-        {/* User Workspace Module (Under UserLayout) */}
-        <Route element={<ProtectedRoute><UserLayout /></ProtectedRoute>}>
+        {/* User Workspace Module (Under UserMobileLayout) */}
+        <Route element={<ProtectedRoute><UserMobileLayout /></ProtectedRoute>}>
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="education" element={<Education />} />
           <Route path="education/article" element={<ArticleDetail />} />

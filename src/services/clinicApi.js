@@ -1,79 +1,103 @@
-const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+let googleMapsPromise = null;
+
+const loadGoogleMaps = () => {
+  const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  if (!API_KEY || API_KEY === 'your_google_maps_api_key_here') {
+    return Promise.reject(new Error('API_KEY_MISSING'));
+  }
+
+  if (window.google && window.google.maps) {
+    return Promise.resolve();
+  }
+
+  if (googleMapsPromise) {
+    return googleMapsPromise;
+  }
+
+  googleMapsPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('UNKNOWN_ERROR'));
+    document.head.appendChild(script);
+  });
+
+  return googleMapsPromise;
+};
 
 export const geocodeLocation = async (locationText) => {
-  if (!API_KEY || API_KEY === 'your_google_maps_api_key_here') {
-    throw new Error('API_KEY_MISSING');
-  }
-
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(locationText)}&key=${API_KEY}`;
+  await loadGoogleMaps();
   
-  const response = await fetch(url);
-  const data = await response.json();
-  
-  if (data.status === 'OK' && data.results.length > 0) {
-    return data.results[0].geometry.location; // { lat, lng }
-  }
-  
-  throw new Error('LOCATION_NOT_FOUND');
+  return new Promise((resolve, reject) => {
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode({ address: locationText }, (results, status) => {
+      if (status === 'OK' && results.length > 0) {
+        const location = results[0].geometry.location;
+        resolve({ lat: location.lat(), lng: location.lng() });
+      } else if (status === 'ZERO_RESULTS') {
+        reject(new Error('ZERO_RESULTS'));
+      } else {
+        reject(new Error(status));
+      }
+    });
+  });
 };
 
 export const fetchNearbyClinics = async ({ lat, lng }) => {
-  if (!API_KEY || API_KEY === 'your_google_maps_api_key_here') {
-    throw new Error('API_KEY_MISSING');
-  }
+  await loadGoogleMaps();
 
-  const url = 'https://places.googleapis.com/v1/places:searchNearby';
-  
-  // X-Goog-FieldMask dictates exactly what data Google returns
-  const headers = {
-    'Content-Type': 'application/json',
-    'X-Goog-Api-Key': API_KEY,
-    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.regularOpeningHours,places.nationalPhoneNumber,places.primaryType'
-  };
-
-  const body = JSON.stringify({
-    includedTypes: ["hospital", "medical_clinic"],
-    maxResultCount: 15,
-    locationRestriction: {
-      circle: {
-        center: {
-          latitude: lat,
-          longitude: lng
-        },
-        radius: 10000.0 // 10km radius
-      }
-    }
-  });
-
-  const response = await fetch(url, { method: 'POST', headers, body });
-  
-  if (!response.ok) {
-    console.error("Google Places API error:", await response.text());
-    throw new Error('API_ERROR');
-  }
-
-  const data = await response.json();
-  
-  if (!data.places) return [];
-
-  // Map Google Places data into our standard facility format
-  return data.places.map(place => {
-    // Generate a map link for navigation
-    const mapLink = `https://www.google.com/maps/search/?api=1&query=${place.location.latitude},${place.location.longitude}&query_place_id=${place.id}`;
-
-    return {
-      id: place.id,
-      name: place.displayName?.text || 'Unknown Facility',
-      county: 'API Result', // Differentiator
-      type: (place.primaryType || 'Healthcare Facility').replace('_', ' '),
-      location: place.formattedAddress || 'Address not available',
-      phone: place.nationalPhoneNumber || '',
-      services: 'General healthcare', // API doesn't specify breast cancer services specifically
-      openingHours: place.regularOpeningHours?.openNow ? 'Open Now' : 'Closed or hours unknown',
-      rating: place.rating || null,
-      mapLink: mapLink,
-      isApiResult: true
+  return new Promise((resolve, reject) => {
+    const dummyElement = document.createElement('div');
+    const service = new window.google.maps.places.PlacesService(dummyElement);
+    
+    const request = {
+      location: new window.google.maps.LatLng(lat, lng),
+      radius: 10000,
+      keyword: 'hospital clinic health centre medical',
+      type: 'hospital'
     };
+
+    service.nearbySearch(request, (results, status) => {
+      if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
+        
+        // Remove duplicates by place_id
+        const uniquePlaces = [];
+        const seen = new Set();
+        results.forEach(place => {
+          if (!seen.has(place.place_id)) {
+            seen.add(place.place_id);
+            uniquePlaces.push(place);
+          }
+        });
+
+        const normalized = uniquePlaces.map(place => {
+          const mapLink = `https://www.google.com/maps/search/?api=1&query=${place.geometry.location.lat()},${place.geometry.location.lng()}&query_place_id=${place.place_id}`;
+          
+          return {
+            id: place.place_id,
+            name: place.name || 'Unknown Facility',
+            county: 'API Result',
+            type: (place.types && place.types.length > 0) ? place.types[0].replace(/_/g, ' ') : 'Healthcare Facility',
+            location: place.vicinity || 'Address not available',
+            phone: '', // Google JS Nearby API doesn't provide phone without extra detail requests
+            services: 'General healthcare',
+            openingHours: place.opening_hours?.isOpen() ? 'Open Now' : (place.opening_hours ? 'Closed' : 'Hours not available'),
+            rating: place.rating || null,
+            mapLink: mapLink,
+            isApiResult: true,
+            source: 'Google Places'
+          };
+        });
+
+        resolve(normalized);
+      } else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+        resolve([]); // Empty array instead of reject for ZERO_RESULTS
+      } else {
+        reject(new Error(status));
+      }
+    });
   });
 };
 

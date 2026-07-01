@@ -8,8 +8,8 @@
 
 .layout {
   display: grid;
-  grid-template-columns: 380px 1fr;
-  gap: 40px;
+  grid-template-columns: 1fr;
+  gap: 24px;
   align-items: start;
 }
 
@@ -290,15 +290,4 @@ textarea {
   flex: 1;
 }
 
-@media (max-width: 880px) {
-  .layout {
-    grid-template-columns: 1fr;
-    gap: 24px;
-  }
-  .summary-row {
-    grid-template-columns: 1fr 1fr;
-  }
-  .sum-card:nth-child(2n) {
-    border-right: none;
-  }
-}
+/* Responsive Overrides Applied for Mobile Shell */
