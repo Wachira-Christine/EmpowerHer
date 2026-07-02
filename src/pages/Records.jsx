@@ -166,6 +166,9 @@ const Records = () => {
     setView('detail');
   };
 
+  const [editStepResponses, setEditStepResponses] = useState([]);
+  const [editGeneralNotes, setEditGeneralNotes] = useState('');
+
   const handleStartEdit = (record) => {
     setSelectedRecord(record);
     setEditDate(record.date);
@@ -174,6 +177,8 @@ const Records = () => {
     setEditFeltNormal(record.feltNormal);
     setEditChanges(record.changesNoticed || []);
     setEditNotes(record.notes);
+    setEditStepResponses(record.stepResponses ? JSON.parse(JSON.stringify(record.stepResponses)) : []);
+    setEditGeneralNotes(record.generalNotes || '');
     setEditReminder(record.reminderRequested || 'Yes');
     setView('edit');
   };
@@ -208,12 +213,18 @@ const Records = () => {
       const updatedData = {
         date: editDate,
         completedGuide: editCompleted,
-        sideChecked: editSideChecked,
-        feltNormal: editFeltNormal,
-        changesNoticed: editChanges.length > 0 ? editChanges : ['No unusual change noticed'],
-        notes: editNotes,
         reminderRequested: editReminder
       };
+
+      if (selectedRecord.stepResponses) {
+        updatedData.stepResponses = editStepResponses;
+        updatedData.generalNotes = editGeneralNotes;
+      } else {
+        updatedData.sideChecked = editSideChecked;
+        updatedData.feltNormal = editFeltNormal;
+        updatedData.changesNoticed = editChanges.length > 0 ? editChanges : ['No unusual change noticed'];
+        updatedData.notes = editNotes;
+      }
 
       await updateSelfCheckRecord(selectedRecord.id, updatedData);
 
@@ -479,54 +490,71 @@ const Records = () => {
                     <span className="k">Guide completed</span>
                     <span className="v">{selectedRecord.completedGuide || 'Yes'}</span>
                   </div>
-                  <div className="detail-row">
-                    <span className="k">Side checked</span>
-                    <span className="v">{selectedRecord.sideChecked}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="k">Felt normal</span>
-                    <span className="v">{selectedRecord.feltNormal}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="k">Changes selected</span>
-                    {isMasked ? (
-                      <span 
-                        className="v" 
-                        onClick={() => toggleReveal(selectedRecord.id)}
-                        style={{ cursor: 'pointer', fontStyle: 'italic', color: 'var(--coral)' }}
-                      >
-                        Sensitive information hidden. Tap to reveal.
-                      </span>
-                    ) : (
-                      <span 
-                        className="v"
-                        onClick={() => privacySettings.hideSensitiveInfo && toggleReveal(selectedRecord.id)}
-                        style={privacySettings.hideSensitiveInfo ? { cursor: 'pointer' } : {}}
-                      >
-                        {(selectedRecord.changesNoticed || []).join(', ')}
-                      </span>
-                    )}
-                  </div>
-                  <div className="detail-row">
-                    <span className="k">Notes</span>
-                    {isMasked ? (
-                      <span 
-                        className="v" 
-                        onClick={() => toggleReveal(selectedRecord.id)}
-                        style={{ cursor: 'pointer', fontStyle: 'italic', color: 'var(--coral)' }}
-                      >
-                        Sensitive information hidden. Tap to reveal.
-                      </span>
-                    ) : (
-                      <span 
-                        className="v"
-                        onClick={() => privacySettings.hideSensitiveInfo && toggleReveal(selectedRecord.id)}
-                        style={privacySettings.hideSensitiveInfo ? { cursor: 'pointer' } : {}}
-                      >
-                        {selectedRecord.notes || 'No notes added.'}
-                      </span>
-                    )}
-                  </div>
+                  {selectedRecord.stepResponses ? (
+                    <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px', background: 'var(--bg)', padding: '20px', borderRadius: '12px', width: '100%' }}>
+                      <p style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 'bold', color: 'var(--oxblood-deep)' }}>Step-by-step summary</p>
+                      {selectedRecord.stepResponses.map((step, idx) => (
+                        <div key={idx} style={{ width: '100%', borderBottom: idx < selectedRecord.stepResponses.length - 1 ? '1px solid var(--line)' : 'none', paddingBottom: idx < selectedRecord.stepResponses.length - 1 ? '16px' : '0' }}>
+                          <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: 'bold', color: 'var(--coral)' }}>Step {step.stepNumber}: {step.stepTitle}</p>
+                          <p style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: '500' }}>{step.question}</p>
+                          <p style={{ margin: '0 0 4px 0', fontSize: '14px', color: 'var(--text-light)' }}>
+                            {isMasked ? (
+                              <span onClick={() => toggleReveal(selectedRecord.id)} style={{ cursor: 'pointer', fontStyle: 'italic', color: 'var(--coral)' }}>Sensitive info hidden</span>
+                            ) : (
+                              <span>Answer: <b>{step.answer}</b></span>
+                            )}
+                          </p>
+                          {step.note && !isMasked && (
+                            <p style={{ margin: '4px 0 0', fontSize: '13px', background: '#fff', padding: '8px', borderRadius: '4px', border: '1px dashed var(--line)' }}>Note: {step.note}</p>
+                          )}
+                        </div>
+                      ))}
+                      
+                      <div style={{ marginTop: '16px', width: '100%', borderTop: '1px solid var(--line)', paddingTop: '16px' }}>
+                        <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 'bold' }}>General Notes</p>
+                        {isMasked ? (
+                          <span onClick={() => toggleReveal(selectedRecord.id)} style={{ cursor: 'pointer', fontStyle: 'italic', color: 'var(--coral)', fontSize: '14px' }}>Sensitive information hidden. Tap to reveal.</span>
+                        ) : (
+                          <span style={{ fontSize: '14px' }}>{selectedRecord.generalNotes || 'No general notes added.'}</span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="detail-row">
+                        <span className="k">Side checked</span>
+                        <span className="v">{selectedRecord.sideChecked}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="k">Felt normal</span>
+                        <span className="v">{selectedRecord.feltNormal}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="k">Changes selected</span>
+                        {isMasked ? (
+                          <span className="v" onClick={() => toggleReveal(selectedRecord.id)} style={{ cursor: 'pointer', fontStyle: 'italic', color: 'var(--coral)' }}>
+                            Sensitive information hidden. Tap to reveal.
+                          </span>
+                        ) : (
+                          <span className="v" onClick={() => privacySettings.hideSensitiveInfo && toggleReveal(selectedRecord.id)} style={privacySettings.hideSensitiveInfo ? { cursor: 'pointer' } : {}}>
+                            {(selectedRecord.changesNoticed || []).join(', ')}
+                          </span>
+                        )}
+                      </div>
+                      <div className="detail-row">
+                        <span className="k">Notes</span>
+                        {isMasked ? (
+                          <span className="v" onClick={() => toggleReveal(selectedRecord.id)} style={{ cursor: 'pointer', fontStyle: 'italic', color: 'var(--coral)' }}>
+                            Sensitive information hidden. Tap to reveal.
+                          </span>
+                        ) : (
+                          <span className="v" onClick={() => privacySettings.hideSensitiveInfo && toggleReveal(selectedRecord.id)} style={privacySettings.hideSensitiveInfo ? { cursor: 'pointer' } : {}}>
+                            {selectedRecord.notes || 'No notes added.'}
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  )}
                   <div className="detail-row">
                     <span className="k">Reminder set</span>
                     <span className="v">{selectedRecord.reminderRequested === 'Yes' ? 'Yes' : 'No'}</span>
@@ -602,95 +630,98 @@ const Records = () => {
                     </div>
                   </div>
 
-                  <div className="field">
-                    <label>Which side did you check?</label>
-                    <div className="choice-row">
-                      <label className={`choice ${editSideChecked === 'Left breast' ? 'active' : ''}`}>
-                        <input 
-                          type="radio" 
-                          name="editSideChecked" 
-                          value="Left breast" 
-                          checked={editSideChecked === 'Left breast'} 
-                          onChange={() => setEditSideChecked('Left breast')} 
-                        /> Left breast
-                      </label>
-                      <label className={`choice ${editSideChecked === 'Right breast' ? 'active' : ''}`}>
-                        <input 
-                          type="radio" 
-                          name="editSideChecked" 
-                          value="Right breast" 
-                          checked={editSideChecked === 'Right breast'} 
-                          onChange={() => setEditSideChecked('Right breast')} 
-                        /> Right breast
-                      </label>
-                      <label className={`choice ${editSideChecked === 'Both' ? 'active' : ''}`}>
-                        <input 
-                          type="radio" 
-                          name="editSideChecked" 
-                          value="Both" 
-                          checked={editSideChecked === 'Both'} 
-                          onChange={() => setEditSideChecked('Both')} 
-                        /> Both
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="field">
-                    <label>Did everything feel normal for you?</label>
-                    <div className="choice-row">
-                      <label className={`choice ${editFeltNormal === 'Yes' ? 'active' : ''}`}>
-                        <input 
-                          type="radio" 
-                          name="editFeltNormal" 
-                          value="Yes" 
-                          checked={editFeltNormal === 'Yes'} 
-                          onChange={() => setEditFeltNormal('Yes')} 
-                        /> Yes
-                      </label>
-                      <label className={`choice ${editFeltNormal === 'No' ? 'active' : ''}`}>
-                        <input 
-                          type="radio" 
-                          name="editFeltNormal" 
-                          value="No" 
-                          checked={editFeltNormal === 'No'} 
-                          onChange={() => setEditFeltNormal('No')} 
-                        /> No
-                      </label>
-                      <label className={`choice ${editFeltNormal === 'Not sure' ? 'active' : ''}`}>
-                        <input 
-                          type="radio" 
-                          name="editFeltNormal" 
-                          value="Not sure" 
-                          checked={editFeltNormal === 'Not sure'} 
-                          onChange={() => setEditFeltNormal('Not sure')} 
-                        /> Not sure
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="field">
-                    <label>Did you notice any changes? Select all that apply</label>
-                    <div className="checklist">
-                      {changesList.map((change) => (
-                        <label key={change}>
+                  {selectedRecord.stepResponses ? (
+                    <div style={{ background: 'var(--bg)', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
+                      <p style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 'bold', color: 'var(--oxblood-deep)' }}>Edit Responses</p>
+                      
+                      {editStepResponses.map((step, idx) => (
+                        <div key={idx} className="field" style={{ borderBottom: idx < editStepResponses.length - 1 ? '1px solid var(--line)' : 'none', paddingBottom: idx < editStepResponses.length - 1 ? '16px' : '0', marginBottom: '16px' }}>
+                          <label style={{ color: 'var(--coral)', fontSize: '12px' }}>Step {step.stepNumber}: {step.stepTitle}</label>
+                          <p style={{ fontSize: '14px', fontWeight: 'bold', margin: '4px 0 12px 0' }}>{step.question}</p>
+                          
+                          <label style={{ fontSize: '13px' }}>Answer</label>
                           <input 
-                            type="checkbox" 
-                            checked={editChanges.includes(change)} 
-                            onChange={() => handleCheckboxChange(change)} 
-                          /> {change}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
+                            type="text" 
+                            value={step.answer} 
+                            onChange={(e) => {
+                              const newResponses = [...editStepResponses];
+                              newResponses[idx].answer = e.target.value;
+                              setEditStepResponses(newResponses);
+                            }}
+                            style={{ marginBottom: '10px' }}
+                          />
 
-                  <div className="field">
-                    <label>Notes</label>
-                    <textarea 
-                      value={editNotes} 
-                      onChange={(e) => setEditNotes(e.target.value)} 
-                      placeholder="Additional details..." 
-                    />
-                  </div>
+                          <label style={{ fontSize: '13px' }}>Note</label>
+                          <textarea 
+                            value={step.note} 
+                            onChange={(e) => {
+                              const newResponses = [...editStepResponses];
+                              newResponses[idx].note = e.target.value;
+                              setEditStepResponses(newResponses);
+                            }}
+                            placeholder="Optional note..."
+                          />
+                        </div>
+                      ))}
+
+                      <div className="field">
+                        <label>General Notes</label>
+                        <textarea 
+                          value={editGeneralNotes} 
+                          onChange={(e) => setEditGeneralNotes(e.target.value)} 
+                          placeholder="General observations..." 
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="field">
+                        <label>Which side did you check?</label>
+                        <div className="choice-row">
+                          <label className={`choice ${editSideChecked === 'Left breast' ? 'active' : ''}`}>
+                            <input type="radio" name="editSideChecked" value="Left breast" checked={editSideChecked === 'Left breast'} onChange={() => setEditSideChecked('Left breast')} /> Left breast
+                          </label>
+                          <label className={`choice ${editSideChecked === 'Right breast' ? 'active' : ''}`}>
+                            <input type="radio" name="editSideChecked" value="Right breast" checked={editSideChecked === 'Right breast'} onChange={() => setEditSideChecked('Right breast')} /> Right breast
+                          </label>
+                          <label className={`choice ${editSideChecked === 'Both' ? 'active' : ''}`}>
+                            <input type="radio" name="editSideChecked" value="Both" checked={editSideChecked === 'Both'} onChange={() => setEditSideChecked('Both')} /> Both
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="field">
+                        <label>Did everything feel normal for you?</label>
+                        <div className="choice-row">
+                          <label className={`choice ${editFeltNormal === 'Yes' ? 'active' : ''}`}>
+                            <input type="radio" name="editFeltNormal" value="Yes" checked={editFeltNormal === 'Yes'} onChange={() => setEditFeltNormal('Yes')} /> Yes
+                          </label>
+                          <label className={`choice ${editFeltNormal === 'No' ? 'active' : ''}`}>
+                            <input type="radio" name="editFeltNormal" value="No" checked={editFeltNormal === 'No'} onChange={() => setEditFeltNormal('No')} /> No
+                          </label>
+                          <label className={`choice ${editFeltNormal === 'Not sure' ? 'active' : ''}`}>
+                            <input type="radio" name="editFeltNormal" value="Not sure" checked={editFeltNormal === 'Not sure'} onChange={() => setEditFeltNormal('Not sure')} /> Not sure
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="field">
+                        <label>Did you notice any changes? Select all that apply</label>
+                        <div className="checklist">
+                          {changesList.map((change) => (
+                            <label key={change}>
+                              <input type="checkbox" checked={editChanges.includes(change)} onChange={() => handleCheckboxChange(change)} /> {change}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="field">
+                        <label>Notes</label>
+                        <textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Additional details..." />
+                      </div>
+                    </>
+                  )}
 
                   <div className="field">
                     <label>Reminder for next month?</label>

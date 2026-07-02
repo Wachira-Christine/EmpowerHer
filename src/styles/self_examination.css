@@ -23,6 +23,18 @@
   letter-spacing: 0.05em;
   color: var(--ink);
   opacity: 0.5;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+button.flow-indicator-step {
+  cursor: pointer;
+  transition: color 0.2s, opacity 0.2s;
+}
+button.flow-indicator-step:hover {
+  opacity: 1;
+  color: var(--coral);
 }
 .flow-indicator-step.active {
   opacity: 1;
@@ -153,20 +165,45 @@
   background: var(--oxblood);
 }
 
-.step-illustration-box {
-  width: 100%;
-  height: 160px;
-  border: 1px dashed var(--line);
-  background: var(--paper-deep);
-  display: flex;
+/* Step Media Row */
+.step-media-row.has-image {
+  display: grid;
+  grid-template-columns: minmax(180px, 280px) 1fr;
+  gap: 1.5rem;
   align-items: center;
+  margin: 1rem 0 1.5rem;
+}
+
+.step-media-row.no-image {
+  display: block;
+  margin: 1rem 0 1.5rem;
+}
+
+.step-image-wrap {
+  display: flex;
   justify-content: center;
-  font-family: var(--font-mono), monospace;
-  font-size: 10.5px;
-  letter-spacing: .06em;
-  text-transform: uppercase;
+  align-items: center;
+  margin: 0;
+}
+
+.step-image {
+  width: 100%;
+  max-width: 260px;
+  max-height: 260px;
+  object-fit: contain;
+  display: block;
+}
+
+.step-instruction {
+  font-size: clamp(1rem, 1.4vw, 1.25rem);
+  line-height: 1.45;
+  margin: 0;
   color: var(--ink);
-  opacity: .5;
+}
+
+.step-instruction.full-width {
+  max-width: 100%;
+  width: 100%;
 }
 
 .guided-steps-card h4 {
@@ -175,6 +212,52 @@
   font-size: 21px;
   margin: 0 0 6px;
   color: var(--oxblood);
+}
+
+.step-question-card {
+  padding: 1.25rem 1.5rem;
+  margin-top: 1rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  text-align: left;
+}
+
+.step-question-card h3,
+.step-question {
+  font-size: 1rem;
+  line-height: 1.45;
+  margin-bottom: 1rem;
+  font-weight: 600;
+  color: var(--oxblood-deep);
+}
+
+.answer-option {
+  padding: 0.75rem 1rem;
+  min-height: 44px;
+}
+
+.step-actions {
+  margin-top: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+@media (max-width: 700px) {
+  .step-media-row.has-image {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .step-image {
+    max-width: 220px;
+    max-height: 220px;
+  }
+
+  .step-instruction {
+    text-align: center;
+    font-size: 1rem;
+  }
 }
 .guided-steps-card p.step-desc {
   font-size: 15.5px;

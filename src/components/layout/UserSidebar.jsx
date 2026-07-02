@@ -1,7 +1,19 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth } from '../../firebase/firebase';
 
 const UserSidebar = () => {
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
   const sidebarItems = [
     { path: '/dashboard', no: '01', label: 'Home' },
     { path: '/education', no: '02', label: 'Learn' },
@@ -54,6 +66,32 @@ const UserSidebar = () => {
           </React.Fragment>
         ))}
       </ul>
+
+      <div style={{ padding: '20px 4px 10px' }}>
+        <button 
+          onClick={handleLogout}
+          style={{ 
+            background: 'none', 
+            border: 'none', 
+            padding: 0, 
+            display: 'flex', 
+            alignItems: 'baseline', 
+            gap: '10px', 
+            cursor: 'pointer', 
+            fontFamily: 'var(--font-body)', 
+            fontSize: '14.5px', 
+            color: 'var(--oxblood)',
+            opacity: 0.8
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.8'; }}
+        >
+          <span className="no" style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', opacity: 0.4, color: 'var(--ink)' }}>
+            OUT
+          </span>
+          <span style={{ fontWeight: '500' }}>Log out</span>
+        </button>
+      </div>
       
       <div className="toc-foot" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', opacity: 0.45, letterSpacing: '0.05em', paddingTop: '18px', borderTop: '1px solid var(--line)' }}>
         EMPOWERHER PWA — ED. 2026

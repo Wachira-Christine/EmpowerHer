@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { doc, getDoc, setDoc, collection, getDocs, addDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, where } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../../firebase/firebase';
+import { db } from '../../firebase/firebase';
+import { selfCheckIllustrations } from '../../constants/selfCheckIllustrations';
 import '../../styles/admin.css';
 
 const ManageSelfExamGuide = () => {
@@ -31,8 +31,10 @@ const ManageSelfExamGuide = () => {
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formImageUrl, setFormImageUrl] = useState('');
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState('');
+  const [formImageKey, setFormImageKey] = useState('none');
+  const [formHasIllustration, setFormHasIllustration] = useState(false);
+  const [formQuestion, setFormQuestion] = useState('');
+  const [formAnswerOptions, setFormAnswerOptions] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
   // Form states for health note editing
@@ -41,13 +43,13 @@ const ManageSelfExamGuide = () => {
   const defaultHealthNote = "EmpowerHer does not provide medical diagnosis. If you notice a lump, nipple discharge, unusual pain, skin changes, swelling, or any change that worries you, please visit a qualified healthcare provider.";
 
   const defaultSteps = [
-    { stepNumber: 1, title: "Prepare", description: "Find a private, comfortable place. Stand in front of a mirror and relax your shoulders.", status: "Active", imageUrl: "" },
-    { stepNumber: 2, title: "Look in the mirror", description: "Look at the size, shape, and appearance of both breasts.", status: "Active", imageUrl: "" },
-    { stepNumber: 3, title: "Raise your arms", description: "Raise both arms and look again for changes in shape, skin, or nipple position.", status: "Active", imageUrl: "" },
-    { stepNumber: 4, title: "Check while standing or in the shower", description: "Use the pads of your fingers in small circular movements.", status: "Active", imageUrl: "" },
-    { stepNumber: 5, title: "Check while lying down", description: "Repeat the same circular movement, covering the whole breast area.", status: "Active", imageUrl: "" },
-    { stepNumber: 6, title: "Check the underarm area", description: "Gently feel around the armpit and upper chest for unusual swelling.", status: "Active", imageUrl: "" },
-    { stepNumber: 7, title: "Record what you noticed", description: "Write down whether everything felt normal or you noticed any changes.", status: "Active", imageUrl: "" }
+    { stepNumber: 1, title: "Prepare", description: "Find a private, comfortable place. Stand in front of a mirror and relax your shoulders.", status: "Active", imageUrl: "", question: "Are you ready to begin the self-check in a private and comfortable place?", answerOptions: ["Yes, I am ready", "Not yet"] },
+    { stepNumber: 2, title: "Look in the mirror", description: "Look at the size, shape, and appearance of both breasts.", status: "Active", imageUrl: "", question: "Do you see any change in breast size, shape, skin texture, swelling, or nipple position?", answerOptions: ["No visible change noticed", "Yes, I noticed a visible change", "Not sure"] },
+    { stepNumber: 3, title: "Raise your arms", description: "Raise both arms and look again for changes in shape, skin, or nipple position.", status: "Active", imageUrl: "", question: "When you raise your arms, do you notice any pulling, dimpling, swelling, or change in shape?", answerOptions: ["No change noticed", "Yes, I noticed a change", "Not sure"] },
+    { stepNumber: 4, title: "Check the nipple area", description: "Look at the nipple area and gently notice whether there are changes such as unusual discharge, inversion, rash, or soreness.", status: "Active", imageUrl: "", question: "Do you notice any nipple discharge, inward turning, rash, soreness, or unusual nipple change?", answerOptions: ["No nipple change noticed", "Yes, I noticed a nipple change", "Not sure"] },
+    { stepNumber: 5, title: "Check while standing or in the shower", description: "Use the pads of your fingers in small circular movements.", status: "Active", imageUrl: "", question: "While checking with your fingers, did you feel any lump, thick area, unusual firmness, or painful spot?", answerOptions: ["No unusual area felt", "Yes, I felt an unusual area", "Not sure"] },
+    { stepNumber: 6, title: "Check while lying down", description: "Repeat the same circular movement, covering the whole breast area.", status: "Active", imageUrl: "", question: "While lying down, did any area feel different from the rest of the breast?", answerOptions: ["No difference felt", "Yes, one area felt different", "Not sure"] },
+    { stepNumber: 7, title: "Check the underarm area", description: "Gently feel around the armpit and upper chest for unusual swelling.", status: "Active", imageUrl: "", question: "Did you feel any swelling, lump, tenderness, or unusual change in the underarm area?", answerOptions: ["No underarm change noticed", "Yes, I noticed an underarm change", "Not sure"] }
   ];
 
   const showToast = (message, type = 'success') => {
@@ -221,26 +223,11 @@ const ManageSelfExamGuide = () => {
     setFormTitle(step.title || '');
     setFormDescription(step.description || '');
     setFormImageUrl(step.imageUrl || '');
-    setImageFile(null);
-    setImagePreview('');
+    setFormImageKey(step.imageKey || 'none');
+    setFormHasIllustration(!!step.imageUrl || (step.imageKey && step.imageKey !== 'none'));
+    setFormQuestion(step.question || '');
+    setFormAnswerOptions((step.answerOptions || []).join('\n'));
     setView('edit');
-  };
-
-  const handleImageSelection = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!['image/jpeg', 'image/png', 'image/webp', 'image/jpg'].includes(file.type)) {
-      showToast("Please upload a valid image file.", "error");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      showToast("Image is too large. Please upload an image under 5MB.", "error");
-      return;
-    }
-
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
   };
 
   const handleSaveStep = async (e) => {
@@ -254,19 +241,34 @@ const ManageSelfExamGuide = () => {
 
     try {
       let finalImageUrl = formImageUrl;
-      if (imageFile) {
-        const fileRef = ref(storage, `selfExamGuideImages/${user.uid}/${Date.now()}-${imageFile.name}`);
-        const snapshot = await uploadBytes(fileRef, imageFile);
-        finalImageUrl = await getDownloadURL(snapshot.ref);
+      let finalImageKey = formImageKey;
+      
+      if (!formHasIllustration) {
+        finalImageUrl = '';
+        finalImageKey = 'none';
+      } else if (finalImageKey !== 'none' && !finalImageUrl) {
+        const matchedIllustration = selfCheckIllustrations.find(ill => ill.id === finalImageKey);
+        if (matchedIllustration) {
+          finalImageUrl = matchedIllustration.src;
+        }
       }
 
       const stepRef = doc(db, 'selfExamGuide', 'steps', 'steps', editingStep.id);
+      
+      const parsedOptions = formAnswerOptions
+        .split('\n')
+        .map(opt => opt.trim())
+        .filter(opt => opt.length > 0);
+
       await updateDoc(stepRef, {
         stepNumber: parseInt(formStepNumber, 10) || editingStep.stepNumber,
         status: formStatus,
         title: formTitle,
         description: formDescription,
         imageUrl: finalImageUrl,
+        imageKey: finalImageKey,
+        question: formQuestion.trim(),
+        answerOptions: parsedOptions,
         updatedAt: serverTimestamp(),
         updatedBy: user?.email || 'Admin'
       });
@@ -470,29 +472,77 @@ const ManageSelfExamGuide = () => {
               </div>
 
               <div className="field">
-                <label>Icon / Image</label>
-                <input 
-                  type="file" 
-                  accept=".jpg,.jpeg,.png,.webp" 
-                  onChange={handleImageSelection}
-                  style={{ marginBottom: '10px' }}
+                <label>Step question</label>
+                <textarea 
+                  value={formQuestion}
+                  onChange={(e) => setFormQuestion(e.target.value)}
+                  placeholder="Enter the question users should answer during this step"
                 />
-                <label style={{ fontSize: '13px', opacity: 0.7, fontWeight: 'normal', margin: '5px 0' }}>Or paste image URL</label>
-                <input 
-                  type="text" 
-                  value={formImageUrl}
-                  onChange={(e) => setFormImageUrl(e.target.value)}
-                  placeholder="https://example.com/illustration.png"
+              </div>
+
+              <div className="field">
+                <label>Answer options (one per line)</label>
+                <textarea 
+                  value={formAnswerOptions}
+                  onChange={(e) => setFormAnswerOptions(e.target.value)}
+                  placeholder="No change noticed&#10;Yes, I noticed a change&#10;Not sure"
+                  style={{ minHeight: '80px' }}
                 />
-                <div className="icon-ph" style={{ marginTop: '10px', height: 'auto', minHeight: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', border: '1px dashed var(--line)' }}>
-                  {imagePreview ? (
-                    <img src={imagePreview} alt="Preview" style={{ maxHeight: '150px', maxWidth: '100%' }} />
-                  ) : formImageUrl ? (
-                    <img src={formImageUrl} alt="Preview" style={{ maxHeight: '150px', maxWidth: '100%' }} />
-                  ) : (
-                    "Illustration placeholder — upload image"
-                  )}
+              </div>
+
+              <div className="field" style={{ background: 'var(--bg)', padding: '16px', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: formHasIllustration ? '16px' : '0' }}>
+                  <label style={{ margin: 0, fontWeight: 'bold' }}>Show illustration for this step</label>
+                  <div className="choice-row" style={{ marginTop: 0 }}>
+                    <label className={`choice ${formHasIllustration ? 'active' : ''}`}>
+                      <input type="radio" checked={formHasIllustration} onChange={() => setFormHasIllustration(true)} /> ON
+                    </label>
+                    <label className={`choice ${!formHasIllustration ? 'active' : ''}`}>
+                      <input type="radio" checked={!formHasIllustration} onChange={() => setFormHasIllustration(false)} /> OFF
+                    </label>
+                  </div>
                 </div>
+
+                {formHasIllustration && (
+                  <>
+                    <label style={{ marginTop: '16px' }}>Select step illustration</label>
+                    <select 
+                      value={formImageKey}
+                      onChange={(e) => {
+                        setFormImageKey(e.target.value);
+                        if (e.target.value !== 'none') setFormImageUrl('');
+                      }}
+                      style={{ marginBottom: '10px', width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--line)' }}
+                    >
+                      {selfCheckIllustrations.map(ill => (
+                        <option key={ill.id} value={ill.id}>{ill.label}</option>
+                      ))}
+                    </select>
+
+                    <label style={{ fontSize: '13px', opacity: 0.7, fontWeight: 'normal', margin: '5px 0' }}>Or paste image URL (Optional)</label>
+                    <input 
+                      type="text" 
+                      value={formImageUrl}
+                      onChange={(e) => setFormImageUrl(e.target.value)}
+                      placeholder="https://example.com/illustration.png"
+                    />
+                    
+                    <div className="icon-ph" style={{ marginTop: '10px', height: 'auto', minHeight: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: '1px dashed var(--line)', borderRadius: '8px', padding: '10px' }}>
+                      {(() => {
+                        const previewUrl = formImageUrl || selfCheckIllustrations.find(i => i.id === formImageKey)?.src;
+                        return previewUrl ? (
+                          <img src={previewUrl} alt="Preview" style={{ maxHeight: '150px', maxWidth: '100%', objectFit: 'contain' }} />
+                        ) : (
+                          <span style={{ fontSize: '13px', color: 'var(--text-light)' }}>No image selected</span>
+                        );
+                      })()}
+                    </div>
+                  </>
+                )}
+                
+                <p style={{ fontSize: '12px', color: 'var(--text-light)', marginTop: '12px', fontStyle: 'italic', lineHeight: '1.4' }}>
+                  Images are selected from local app assets for this prototype. Firebase Storage upload can be added later when billing is available.
+                </p>
               </div>
 
               <div className="form-actions">
@@ -530,6 +580,13 @@ const ManageSelfExamGuide = () => {
                 {viewingStep.status}
               </span>
             </div>
+
+            {viewingStep.question && (
+              <div style={{ margin: '16px 0', padding: '12px', background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: '6px' }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 'bold', color: 'var(--oxblood)' }}>Question:</p>
+                <p style={{ margin: 0, fontSize: '14px' }}>{viewingStep.question}</p>
+              </div>
+            )}
 
             <div className="icon-ph" style={{ height: 'auto', minHeight: '80px', marginTop: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {viewingStep.imageUrl ? (

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { createSelfCheckRecord } from '../services/selfCheckService';
-import { collection, query, where, orderBy, onSnapshot, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import Button from '../components/common/Button';
 import '../styles/self_examination.css';
@@ -11,100 +11,46 @@ const SelfExam = () => {
   const navigate = useRef(useNavigate()).current;
   const { user } = useAuth();
 
-  // Flow State
-  const [activeStep, setActiveStep] = useState(1);
-  const [showForm, setShowForm] = useState(false);
+  // Wizard Flow State
+  // 0 = Intro/Video, 1..N = Steps, N+1 = Summary
+  const [activeStep, setActiveStep] = useState(0); 
   const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  // Data State
+  const [stepResponses, setStepResponses] = useState({});
+  const [generalNotes, setGeneralNotes] = useState('');
+  const [reminderRequested, setReminderRequested] = useState('Yes');
+  const [clinicDirectoryRequested, setClinicDirectoryRequested] = useState(false);
 
-  // Form Field States
-  const [date, setDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
-  const [completed, setCompleted] = useState('Yes');
-  const [sideChecked, setSideChecked] = useState('Both');
-  const [feltNormal, setFeltNormal] = useState('Yes');
-  const [notes, setNotes] = useState('');
-  const [setReminderState, setSetReminderState] = useState('Yes');
   const [errorMsg, setErrorMsg] = useState('');
   const [loadingState, setLoadingState] = useState(false);
 
-  const [selectedChanges, setSelectedChanges] = useState({
-    none: true,
-    lump: false,
-    pain: false,
-    discharge: false,
-    nipple: false,
-    skin: false,
-    swelling: false,
-    shape: false,
-    other: false
-  });
-
-  // Default steps as fallback
-  const defaultSteps = [
-    {
-      no: '01',
-      tag: 'Prepare',
-      title: 'Find a quiet, private moment',
-      desc: 'Find a private, comfortable place. Stand in front of a mirror and relax your shoulders.',
-      illustration: 'Step 1: Relaxing posture in front of mirror'
-    },
-    {
-      no: '02',
-      tag: 'Look',
-      title: 'Look in the mirror',
-      desc: 'Look at the size, shape, and appearance of both breasts. Notice any swelling, dimpling, or changes in the skin.',
-      illustration: 'Step 2: Visually inspecting breasts'
-    },
-    {
-      no: '03',
-      tag: 'Look again',
-      title: 'Raise your arms',
-      desc: 'Raise both arms and look again for changes in shape, skin, or nipple position.',
-      illustration: 'Step 3: Hands raised, visual checklist'
-    },
-    {
-      no: '04',
-      tag: 'Feel — standing',
-      title: 'Check while standing or in the shower',
-      desc: 'Use the pads of your middle fingers to gently feel each breast in small circular movements. Wet, soapy skin can make it easier to feel changes.',
-      illustration: 'Step 4: Standing physical feel'
-    },
-    {
-      no: '05',
-      tag: 'Feel — lying down',
-      title: 'Check while lying down',
-      desc: 'Lie down on your back with a pillow under your right shoulder. Repeat the same circular feel on your right breast, then switch sides.',
-      illustration: 'Step 5: Lying down physical feel'
-    },
-    {
-      no: '06',
-      tag: 'Underarm',
-      title: 'Check the underarm area',
-      desc: 'Gently feel around the armpit and upper chest area for any unusual swelling, thickening, or lumps.',
-      illustration: 'Step 6: Underarm/armpit checklist'
-    },
-    {
-      no: '07',
-      tag: 'Record',
-      title: 'Record what you noticed',
-      desc: 'Take note of whether everything felt normal or whether you noticed any changes. You will write down your check on the next screen.',
-      illustration: 'Step 7: Final observation prep'
-    }
-  ];
-
+  // Firestore Data
   const [healthNote, setHealthNote] = useState('');
-  const [guideSteps, setGuideSteps] = useState(defaultSteps);
+  const [guideSteps, setGuideSteps] = useState([]);
   const [loadingSteps, setLoadingSteps] = useState(true);
 
-  // Sync self-exam steps in real-time from Firestore
+  // Default fallback
+  const defaultHealthNote = "EmpowerHer does not provide medical diagnosis. If you notice a lump, nipple discharge, unusual pain, skin changes, swelling, or any change that worries you, please visit a qualified healthcare provider.";
+
+  const defaultSteps = [
+    { no: '01', title: "Prepare", desc: "Find a private, comfortable place. Stand in front of a mirror and relax your shoulders.", question: "Are you ready to begin the self-check in a private and comfortable place?", answerOptions: ["Yes, I am ready", "Not yet"] },
+    { no: '02', title: "Look in the mirror", desc: "Look at the size, shape, and appearance of both breasts.", question: "Do you see any change in breast size, shape, skin texture, swelling, or nipple position?", answerOptions: ["No visible change noticed", "Yes, I noticed a visible change", "Not sure"] },
+    { no: '03', title: "Raise your arms", desc: "Raise both arms and look again for changes in shape, skin, or nipple position.", question: "When you raise your arms, do you notice any pulling, dimpling, swelling, or change in shape?", answerOptions: ["No change noticed", "Yes, I noticed a change", "Not sure"] },
+    { no: '04', title: "Check the nipple area", desc: "Look at the nipple area and gently notice whether there are changes such as unusual discharge, inversion, rash, or soreness.", question: "Do you notice any nipple discharge, inward turning, rash, soreness, or unusual nipple change?", answerOptions: ["No nipple change noticed", "Yes, I noticed a nipple change", "Not sure"] },
+    { no: '05', title: "Check while standing or in the shower", desc: "Use the pads of your fingers in small circular movements.", question: "While checking with your fingers, did you feel any lump, thick area, unusual firmness, or painful spot?", answerOptions: ["No unusual area felt", "Yes, I felt an unusual area", "Not sure"] },
+    { no: '06', title: "Check while lying down", desc: "Repeat the same circular movement, covering the whole breast area.", question: "While lying down, did any area feel different from the rest of the breast?", answerOptions: ["No difference felt", "Yes, one area felt different", "Not sure"] },
+    { no: '07', title: "Check the underarm area", desc: "Gently feel around the armpit and upper chest for unusual swelling.", question: "Did you feel any swelling, lump, tenderness, or unusual change in the underarm area?", answerOptions: ["No underarm change noticed", "Yes, I noticed an underarm change", "Not sure"] }
+  ];
+
   useEffect(() => {
     // 1. Listen to settings for healthNote
     const settingsRef = doc(db, 'selfExamGuide', 'settings');
     const unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
       if (docSnap.exists()) {
-        setHealthNote(docSnap.data().healthNote || '');
+        setHealthNote(docSnap.data().healthNote || defaultHealthNote);
+      } else {
+        setHealthNote(defaultHealthNote);
       }
     }, (err) => {
       console.error("HealthNote sync error:", err);
@@ -125,18 +71,20 @@ const SelfExam = () => {
           desc: data.description || '',
           illustration: data.imageUrl || 'Step Illustration',
           imageUrl: data.imageUrl || '',
+          question: data.question || 'Would you like to record anything about this step?',
+          answerOptions: data.answerOptions && data.answerOptions.length > 0 ? data.answerOptions : ["No change noticed", "Yes, I noticed a change", "Not sure"],
           ...data
         });
       });
 
-      // Sort locally by stepNumber ascending to avoid composite index requirements
+      // Sort locally
       list.sort((a, b) => {
         const numA = parseInt(a.stepNumber, 10);
         const numB = parseInt(b.stepNumber, 10);
         return (isNaN(numA) ? 999 : numA) - (isNaN(numB) ? 999 : numB);
       });
 
-      // Format index sequentially to guarantee no NaN is shown
+      // Format index sequentially
       const formattedList = list.map((item, idx) => ({
         ...item,
         no: (idx + 1).toString().padStart(2, '0')
@@ -150,7 +98,6 @@ const SelfExam = () => {
       setLoadingSteps(false);
     }, (err) => {
       console.error("SelfExam guides sync error:", err);
-      // Fallback
       setGuideSteps(defaultSteps);
       setLoadingSteps(false);
     });
@@ -161,75 +108,32 @@ const SelfExam = () => {
     };
   }, []);
 
-  const handleCheckboxChange = (key) => {
-    setSelectedChanges((prev) => {
-      const updated = { ...prev };
-      if (key === 'none') {
-        // If "None" is checked, turn off all others
-        Object.keys(updated).forEach((k) => {
-          updated[k] = k === 'none';
-        });
-      } else {
-        // If any other is checked, toggle it, and turn off "None"
-        updated[key] = !prev[key];
-        updated.none = false;
- 
-        // If nothing is checked anymore, default back to "None"
-        const anyChecked = Object.keys(updated).some((k) => k !== 'none' && updated[k]);
-        if (!anyChecked) {
-          updated.none = true;
-        }
-      }
-      return updated;
-    });
-  };
-
-  // Check if any change other than "none" is selected
-  const hasChangesNoticed = Object.keys(selectedChanges).some(
-    (k) => k !== 'none' && selectedChanges[k]
-  );
-
-  const startGuide = () => {
-    setShowForm(false);
-    setActiveStep(1);
-    const element = document.getElementById('guided-examination-section');
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
   const handleNextStep = () => {
-    if (activeStep < guideSteps.length) {
-      setActiveStep((prev) => prev + 1);
-    } else {
-      setShowForm(true);
-      setTimeout(() => {
-        const element = document.getElementById('save-record-section');
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 100);
-    }
+    setActiveStep(prev => prev + 1);
+    setTimeout(() => {
+      const element = document.getElementById('guided-examination-section');
+      if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
   };
 
   const handlePrevStep = () => {
-    if (activeStep > 1) {
-      setActiveStep((prev) => prev - 1);
+    if (activeStep > 0) {
+      setActiveStep(prev => prev - 1);
+      setTimeout(() => {
+        const element = document.getElementById('guided-examination-section');
+        if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 0);
     }
   };
 
-  const getChangesArray = () => {
-    if (selectedChanges.none) return ['No unusual change noticed'];
-    const list = [];
-    if (selectedChanges.lump) list.push('Lump or thickened area');
-    if (selectedChanges.pain) list.push('Breast pain');
-    if (selectedChanges.discharge) list.push('Nipple discharge');
-    if (selectedChanges.nipple) list.push('Nipple position change');
-    if (selectedChanges.skin) list.push('Skin dimpling or redness');
-    if (selectedChanges.swelling) list.push('Swelling');
-    if (selectedChanges.shape) list.push('Change in breast shape or size');
-    if (selectedChanges.other) list.push('Other');
-    return list.length > 0 ? list : ['No unusual change noticed'];
+  const handleResponseChange = (stepIndex, field, value) => {
+    setStepResponses(prev => ({
+      ...prev,
+      [stepIndex]: {
+        ...prev[stepIndex],
+        [field]: value
+      }
+    }));
   };
 
   const handleFormSubmit = async (e) => {
@@ -242,18 +146,36 @@ const SelfExam = () => {
     setLoadingState(true);
 
     try {
+      const formattedResponses = guideSteps.map((step, index) => {
+        const response = stepResponses[index] || {};
+        return {
+          stepNumber: step.no || (index + 1).toString(),
+          stepTitle: step.title,
+          question: step.question || 'Did you notice any changes?',
+          answer: response.answer || step.answerOptions[0] || 'No change noticed',
+          note: response.note || ''
+        };
+      });
+
+      const today = new Date().toISOString().split('T')[0];
+
       const recordData = {
-        date,
-        completedGuide: completed,
-        sideChecked,
-        feltNormal,
-        changesNoticed: getChangesArray(),
-        notes,
-        reminderRequested: setReminderState
+        date: today,
+        completedGuide: 'Yes',
+        stepResponses: formattedResponses,
+        generalNotes,
+        reminderRequested,
+        clinicDirectoryRequested
       };
       
       await createSelfCheckRecord(user.uid, recordData);
       setSaveSuccess(true);
+      
+      if (clinicDirectoryRequested) {
+        setTimeout(() => {
+          navigate('/clinics');
+        }, 3000);
+      }
     } catch (err) {
       console.error("Error saving self check record:", err);
       setErrorMsg("Failed to save your self-check record. Please try again.");
@@ -262,13 +184,14 @@ const SelfExam = () => {
     }
   };
 
-  // Determine current active flow status
+  // Determine flow status
   const getFlowClass = (index) => {
     if (saveSuccess) return 'flow-indicator-step completed';
-    if (showForm && index === 3) return 'flow-indicator-step active';
-    if (showForm && index < 3) return 'flow-indicator-step completed';
-    if (!showForm && index === 2) return 'flow-indicator-step active';
-    if (!showForm && index === 1) return 'flow-indicator-step completed';
+    if (activeStep === guideSteps.length + 1 && index === 3) return 'flow-indicator-step active';
+    if (activeStep === guideSteps.length + 1 && index < 3) return 'flow-indicator-step completed';
+    if (activeStep > 0 && activeStep <= guideSteps.length && index === 2) return 'flow-indicator-step active';
+    if (activeStep > 0 && activeStep <= guideSteps.length && index === 1) return 'flow-indicator-step completed';
+    if (activeStep === 0 && index === 1) return 'flow-indicator-step active';
     return 'flow-indicator-step';
   };
 
@@ -281,80 +204,68 @@ const SelfExam = () => {
         <div className="self-success-card">
           <div style={{ fontSize: '48px', color: 'var(--coral)' }}>✓</div>
           <h3>Record Saved Successfully</h3>
-          <p>Your self-check observation has been recorded and linked to your private profile dashboard.</p>
+          <p>Your self-check observation has been recorded in your History Log.</p>
+          {clinicDirectoryRequested && (
+            <div style={{ margin: '20px 0', padding: '12px', background: 'var(--coral)', color: '#fff', borderRadius: '8px' }}>
+              Redirecting you to the clinic directory...
+            </div>
+          )}
           <div className="self-flow-note" style={{ justifyContent: 'center' }}>
-            <span className="arrow">→</span> After saving, this record appears in your Self-Check History page.
+            <span className="arrow">→</span> Remember, EmpowerHer does not provide medical diagnosis. Always consult a healthcare provider for any concerns.
           </div>
-          {setReminderState === 'Yes' && (
+          {!clinicDirectoryRequested && reminderRequested === 'Yes' && (
             <Button variant="primary" onClick={() => navigate('/reminders', { 
-              state: { 
-                prefill: true, 
-                title: 'Monthly self-check', 
-                type: 'Monthly self-check', 
-                repeat: 'Monthly', 
-                status: 'Active', 
-                method: 'In-app' 
-              } 
+              state: { prefill: true, title: 'Monthly self-check', type: 'Monthly self-check', repeat: 'Monthly', status: 'Active', method: 'In-app' } 
             })}>
               Set Reminder
             </Button>
           )}
-          <Button variant={setReminderState === 'Yes' ? 'secondary' : 'primary'} onClick={() => navigate('/records')}>
-            View History Log
-          </Button>
-          <Button variant="secondary" onClick={() => navigate('/dashboard')}>
-            Back to Dashboard
-          </Button>
+          {!clinicDirectoryRequested && (
+            <Button variant={reminderRequested === 'Yes' ? 'secondary' : 'primary'} onClick={() => navigate('/records')}>
+              View History Log
+            </Button>
+          )}
+          {!clinicDirectoryRequested && (
+            <Button variant="secondary" onClick={() => navigate('/dashboard')}>
+              Back to Dashboard
+            </Button>
+          )}
         </div>
       </div>
     );
   }
 
-  const currentStepData = guideSteps[activeStep - 1] || defaultSteps[0];
-
   return (
     <div>
-      {/* Page Header */}
       <p className="edu-eyebrow">Section 03</p>
       <h2 className="edu-h1">Guided Self-<em>Examination</em></h2>
       <p className="edu-dek">
-        Watch the tutorial, follow each step, then save your self-check record.
+        Watch the tutorial, follow each step interactively, then save your self-check record.
       </p>
 
-      {/* Health Note Warning Banner */}
-      <div className="edu-banner">
-        <b>Important Health Note:</b> EmpowerHer provides educational breast health support only. This guide does not diagnose breast cancer. If you notice a lump, nipple discharge, unusual pain, skin changes, swelling, or any change that worries you, please visit a qualified healthcare provider.
+      {/* Health Note Banner */}
+      <div className="edu-banner" style={{ background: 'var(--paper)', color: 'var(--ink)', borderLeft: '4px solid var(--oxblood)', borderTop: 'none', borderRight: 'none', borderBottom: 'none', padding: '16px 20px', borderRadius: '8px', marginBottom: '24px' }}>
+        <b style={{ fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.05em', color: 'var(--oxblood-deep)', display: 'block', marginBottom: '8px' }}>Important health note</b>
+        {healthNote || defaultHealthNote}
       </div>
 
       {/* Flow Indicator Timeline */}
       <div className="flow-indicators">
-        <div className={getFlowClass(1)}>
+        <button 
+          className={getFlowClass(1)}
+          onClick={() => { document.getElementById('self-check-video')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+        >
           <span>1. Watch Video</span>
-        </div>
+        </button>
         <span className="flow-indicator-sep">➔</span>
-        <div className={getFlowClass(2)}>
-          <span>2. Follow Steps</span>
-        </div>
+        <div className={getFlowClass(2)}><span>2. Follow Steps</span></div>
         <span className="flow-indicator-sep">➔</span>
-        <div className={getFlowClass(3)}>
-          <span>3. Save Record</span>
-        </div>
+        <div className={getFlowClass(3)}><span>3. Save Record</span></div>
       </div>
 
-      {/* 1. Video Tutorial Section */}
-      <div className="edu-section-head">
-        <h3>Watch the guided tutorial</h3>
-        <div className="rule" />
-        <span className="tag">Awareness video</span>
-      </div>
-      
-      <p className="edu-dek" style={{ fontSize: '14px', marginBottom: '20px' }}>
-        Watch this short guide before starting the step-by-step self-examination. The video helps you understand the process before you begin.
-      </p>
-
-      <div className="video-tutorial-container">
-        {/* Left Column: Embed Video Card */}
-        <div className="video-tutorial-card">
+      {/* ================= INTRO & VIDEO ================= */}
+      <div id="self-check-video" className="video-tutorial-container" style={{ marginTop: '30px', display: activeStep === 0 ? 'grid' : 'block' }}>
+        <div className="video-tutorial-card" style={{ marginBottom: activeStep > 0 ? '40px' : '0' }}>
           <span className="self-progress-label">Video Demonstration</span>
           <div className="video-embed-wrapper">
             <video className="self-check-video" controls preload="metadata">
@@ -365,304 +276,173 @@ const SelfExam = () => {
           <span className="video-note">Note: Video demonstration is for breast health awareness and education only.</span>
         </div>
 
-        {/* Right Column: Before You Begin Card */}
-        <div className="before-you-begin-card">
-          <div>
-            <h4>Before you begin</h4>
-            <p>Find a private, comfortable place. Take your time and follow the guide gently. This self-check helps you learn what is normal for your body, but it cannot diagnose breast cancer.</p>
+        {activeStep === 0 && (
+          <div className="before-you-begin-card">
+            <div>
+              <h4>Before you begin</h4>
+              <p>Find a private, comfortable place. Take your time and follow the interactive guide gently. This self-check helps you learn what is normal for your body, but it cannot diagnose breast cancer.</p>
+            </div>
+            <Button variant="primary" onClick={handleNextStep}>
+              Start step-by-step guide
+            </Button>
           </div>
-          <Button variant="primary" onClick={startGuide}>
-            Start step-by-step guide
-          </Button>
-        </div>
+        )}
       </div>
 
-      {/* 2. Step-by-Step Card Section */}
-      <div id="guided-examination-section" className="edu-section-head">
-        <h3>Guided Steps</h3>
-        <div className="rule" />
-        <span className="tag">Interactive</span>
-      </div>
+      {/* ================= STEPS 1..N: INTERACTIVE WIZARD ================= */}
+      {activeStep > 0 && activeStep <= guideSteps.length && (
+        <div id="guided-examination-section" style={{ marginTop: '30px' }}>
+          <div className="self-progress-wrap">
+            <div className="self-progress-label">
+              <span>Step-by-step progress</span>
+              <span>Step {activeStep} of {guideSteps.length}</span>
+            </div>
+            <div className="self-progress-track">
+              <div className="self-progress-fill" style={{ width: `${(activeStep / guideSteps.length) * 100}%` }}></div>
+            </div>
+          </div>
 
-      {healthNote && (
-        <div className="health-note-box" style={{ 
-          background: 'var(--paper-deep)', 
-          padding: '16px 18px', 
-          fontSize: '13.5px', 
-          lineHeight: '1.6', 
-          marginBottom: '20px', 
-          borderLeft: '4.5px solid var(--mustard)'
-        }}>
-          <b>Health note</b>
-          <p style={{ margin: '4px 0 0', opacity: 0.85 }}>{healthNote}</p>
+          <div className={`guided-steps-card ${activeStep % 3 === 1 ? 'alt' : activeStep % 3 === 2 ? 'alt2' : ''}`}>
+            <span className="corner"></span>
+            
+            {(() => {
+              const stepIndex = activeStep - 1;
+              const currentStepData = guideSteps[stepIndex];
+              const response = stepResponses[stepIndex] || {};
+              const currentAnswer = response.answer || '';
+              const isStepOne = stepIndex === 0;
+              const isStepOneNotReady = isStepOne && currentAnswer === 'Not yet';
+              
+              const showNoteField = !isStepOne && (currentAnswer.toLowerCase().includes('yes') || currentAnswer.toLowerCase().includes('not sure'));
+
+              return (
+                <>
+                  <span className="self-progress-label" style={{ color: 'var(--coral)', marginBottom: 0 }}>
+                    Step {currentStepData.no}
+                  </span>
+                  <h4>{currentStepData.title}</h4>
+                  
+                  {/* Media Row: Image & Instruction */}
+                  <div className={`step-media-row ${currentStepData.imageUrl ? 'has-image' : 'no-image'}`}>
+                    {currentStepData.imageUrl && (
+                      <div className="step-image-wrap">
+                        <img 
+                          src={currentStepData.imageUrl} 
+                          alt={currentStepData.title} 
+                          className="step-image"
+                        />
+                      </div>
+                    )}
+                    <p className={`step-instruction ${!currentStepData.imageUrl ? 'full-width' : ''}`}>{currentStepData.desc}</p>
+                  </div>
+                  
+                  <div className="step-question-card">
+                    <p className="step-question">
+                      {currentStepData.question}
+                    </p>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {currentStepData.answerOptions.map((opt, i) => (
+                        <label key={i} className="answer-option" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', background: currentAnswer === opt ? '#fff' : 'transparent', borderRadius: '8px', border: currentAnswer === opt ? '1.5px solid var(--coral)' : '1px solid var(--line)' }}>
+                          <input 
+                            type="radio" 
+                            name={`step-${stepIndex}`} 
+                            value={opt} 
+                            checked={currentAnswer === opt}
+                            onChange={() => handleResponseChange(stepIndex, 'answer', opt)}
+                            style={{ accentColor: 'var(--coral)' }}
+                          />
+                          <span style={{ fontSize: '15px' }}>{opt}</span>
+                        </label>
+                      ))}
+                    </div>
+
+                    {showNoteField && (
+                      <div style={{ marginTop: '20px' }}>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: 'var(--text-light)' }}>
+                          Optional note about this step:
+                        </label>
+                        <textarea 
+                          value={response.note || ''}
+                          onChange={(e) => handleResponseChange(stepIndex, 'note', e.target.value)}
+                          placeholder="Describe what you noticed..."
+                          style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '8px', border: '1px solid var(--line)', background: '#fff', fontSize: '14px', fontFamily: 'inherit' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {isStepOneNotReady && (
+                    <div style={{ marginTop: '20px', padding: '16px', background: 'var(--paper-deep)', borderLeft: '4px solid var(--mustard)', borderRadius: '8px', fontSize: '14px', lineHeight: '1.5' }}>
+                      Take your time. Find a private and comfortable place before continuing. You can begin the self-check when you feel ready.
+                    </div>
+                  )}
+
+                  <div className="step-actions">
+                    <button type="button" className="btn-ghost" onClick={handlePrevStep}>
+                      ← Back
+                    </button>
+                    {isStepOneNotReady ? (
+                      <Button variant="primary" onClick={() => {
+                        handleResponseChange(stepIndex, 'answer', 'Yes, I am ready');
+                        handleNextStep();
+                      }}>
+                        I am ready now
+                      </Button>
+                    ) : (
+                      <Button variant="primary" onClick={handleNextStep}>
+                        {activeStep === guideSteps.length ? 'Review & Save' : 'Next Step'}
+                      </Button>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
         </div>
       )}
 
-      {/* Progress Track */}
-      <div className="self-progress-wrap">
-        <div className="self-progress-label">
-          <span>Step-by-step progress</span>
-          <span>Step {activeStep} of {guideSteps.length}</span>
-        </div>
-        <div className="self-progress-track">
-          <div className="self-progress-fill" style={{ width: `${(activeStep / guideSteps.length) * 100}%` }}></div>
-        </div>
-      </div>
-
-      {/* Interactive Step Card */}
-      <div className={`guided-steps-card ${activeStep % 3 === 1 ? 'alt' : activeStep % 3 === 2 ? 'alt2' : ''}`}>
-        <span className="corner"></span>
-        <span className="self-progress-label" style={{ color: 'var(--coral)', marginBottom: 0 }}>Step {currentStepData.no}</span>
-        
-        <h4>{currentStepData.title}</h4>
-        
-        {/* Illustration Box */}
-        <div className="step-illustration-box" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {currentStepData.imageUrl ? (
-            <img 
-              src={currentStepData.imageUrl} 
-              alt={currentStepData.title} 
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-            />
-          ) : (
-            <span>{currentStepData.illustration || currentStepData.tag}</span>
-          )}
-        </div>
-
-        <p className="step-desc">{currentStepData.desc}</p>
-
-        {/* Navigation buttons inside card */}
-        <div className="step-navigation">
-          <button 
-            type="button" 
-            className="btn-ghost" 
-            onClick={handlePrevStep} 
-            disabled={activeStep === 1}
-            style={{ opacity: activeStep === 1 ? 0.4 : 1, cursor: activeStep === 1 ? 'default' : 'pointer' }}
-          >
-            ← Previous Step
-          </button>
-          
-          <Button variant="primary" onClick={handleNextStep}>
-            {activeStep === guideSteps.length ? 'Continue to self-check form' : 'Next Step →'}
-          </Button>
-        </div>
-
-        <div style={{ textAlign: 'center', opacity: 0.5, fontSize: '11px', fontStyle: 'italic', marginTop: '10px' }}>
-          Need help? Remember this guide is educational only.
-        </div>
-      </div>
-
-      {/* 3. Self-Check Form Section */}
-      {showForm && (
-        <div id="save-record-section" className="self-form-card">
-          <h3 className="self-form-title">Save your self-check record</h3>
-          <p className="self-form-sub">Use this form to record what you noticed. Your record will be saved in your History Log for future reference.</p>
+      {/* ================= FINAL STEP: REVIEW & SAVE ================= */}
+      {activeStep === guideSteps.length + 1 && (
+        <div id="save-record-section" className="self-form-card" style={{ marginTop: '30px' }}>
+          <h3 className="self-form-title">Review your self-check record</h3>
+          <p className="self-form-sub">Please review your responses before saving. This record will be stored in your History Log.</p>
 
           {errorMsg && (
-            <div style={{
-              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              color: 'var(--oxblood)',
-              padding: '10px',
-              borderRadius: '6px',
-              fontSize: '13px',
-              marginBottom: '15px',
-              textAlign: 'left'
-            }}>
+            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--oxblood)', padding: '10px', borderRadius: '6px', fontSize: '13px', marginBottom: '15px' }}>
               {errorMsg}
             </div>
           )}
 
           <form onSubmit={handleFormSubmit}>
-            {/* Date Field */}
-            <div className="self-field">
-              <label htmlFor="form-date">Date of self-check</label>
-              <input 
-                id="form-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-              />
-            </div>
-
-            {/* Guided Examination completion */}
-            <div className="self-field">
-              <label>Did you complete the guided self-examination?</label>
-              <div className="self-choice-row">
-                <label className={`self-choice ${completed === 'Yes' ? 'active' : ''}`}>
-                  <input 
-                    type="radio" 
-                    name="completed" 
-                    value="Yes" 
-                    checked={completed === 'Yes'}
-                    onChange={() => setCompleted('Yes')}
-                  /> Yes
-                </label>
-                <label className={`self-choice ${completed === 'No' ? 'active' : ''}`}>
-                  <input 
-                    type="radio" 
-                    name="completed" 
-                    value="No" 
-                    checked={completed === 'No'}
-                    onChange={() => setCompleted('No')}
-                  /> No
-                </label>
+            
+            {/* Step Summary */}
+            <div style={{ background: 'var(--bg)', borderRadius: '12px', padding: '20px', marginBottom: '30px' }}>
+              <h4 style={{ margin: '0 0 16px 0', fontSize: '16px', color: 'var(--oxblood-deep)' }}>Summary of your check</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {guideSteps.map((step, index) => {
+                  const response = stepResponses[index] || {};
+                  return (
+                    <div key={index} style={{ borderBottom: index < guideSteps.length - 1 ? '1px solid var(--line)' : 'none', paddingBottom: index < guideSteps.length - 1 ? '16px' : '0' }}>
+                      <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: 'bold', color: 'var(--coral)' }}>Step {step.no}: {step.title}</p>
+                      <p style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: '500' }}>{step.question || 'Did you notice any changes?'}</p>
+                      <p style={{ margin: '0 0 4px 0', fontSize: '14px', color: 'var(--text-light)' }}>Answer: <b>{response.answer || 'Not answered'}</b></p>
+                      {response.note && <p style={{ margin: '0', fontSize: '13px', background: '#fff', padding: '8px', borderRadius: '4px', border: '1px dashed var(--line)' }}>Note: {response.note}</p>}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Check Side */}
+            {/* General Notes */}
             <div className="self-field">
-              <label>Which side did you check?</label>
-              <div className="self-choice-row">
-                <label className={`self-choice ${sideChecked === 'Left breast' ? 'active' : ''}`}>
-                  <input 
-                    type="radio" 
-                    name="sideChecked" 
-                    value="Left breast" 
-                    checked={sideChecked === 'Left breast'}
-                    onChange={() => setSideChecked('Left breast')}
-                  /> Left breast
-                </label>
-                <label className={`self-choice ${sideChecked === 'Right breast' ? 'active' : ''}`}>
-                  <input 
-                    type="radio" 
-                    name="sideChecked" 
-                    value="Right breast" 
-                    checked={sideChecked === 'Right breast'}
-                    onChange={() => setSideChecked('Right breast')}
-                  /> Right breast
-                </label>
-                <label className={`self-choice ${sideChecked === 'Both' ? 'active' : ''}`}>
-                  <input 
-                    type="radio" 
-                    name="sideChecked" 
-                    value="Both" 
-                    checked={sideChecked === 'Both'}
-                    onChange={() => setSideChecked('Both')}
-                  /> Both
-                </label>
-              </div>
-            </div>
-
-            {/* Normal status */}
-            <div className="self-field">
-              <label>Did everything feel normal for you?</label>
-              <div className="self-choice-row">
-                <label className={`self-choice ${feltNormal === 'Yes' ? 'active' : ''}`}>
-                  <input 
-                    type="radio" 
-                    name="feltNormal" 
-                    value="Yes" 
-                    checked={feltNormal === 'Yes'}
-                    onChange={() => setFeltNormal('Yes')}
-                  /> Yes
-                </label>
-                <label className={`self-choice ${feltNormal === 'No' ? 'active' : ''}`}>
-                  <input 
-                    type="radio" 
-                    name="feltNormal" 
-                    value="No" 
-                    checked={feltNormal === 'No'}
-                    onChange={() => setFeltNormal('No')}
-                  /> No
-                </label>
-                <label className={`self-choice ${feltNormal === 'Not sure' ? 'active' : ''}`}>
-                  <input 
-                    type="radio" 
-                    name="feltNormal" 
-                    value="Not sure" 
-                    checked={feltNormal === 'Not sure'}
-                    onChange={() => setFeltNormal('Not sure')}
-                  /> Not sure
-                </label>
-              </div>
-            </div>
-
-            {/* Changes checklist */}
-            <div className="self-field">
-              <label>Did you notice any changes? Select all that apply</label>
-              <div className="self-checklist">
-                <label>
-                  <input 
-                    type="checkbox" 
-                    checked={selectedChanges.none} 
-                    onChange={() => handleCheckboxChange('none')}
-                  /> No unusual change noticed
-                </label>
-                <label>
-                  <input 
-                    type="checkbox" 
-                    checked={selectedChanges.lump} 
-                    onChange={() => handleCheckboxChange('lump')}
-                  /> Lump or thickened area
-                </label>
-                <label>
-                  <input 
-                    type="checkbox" 
-                    checked={selectedChanges.pain} 
-                    onChange={() => handleCheckboxChange('pain')}
-                  /> Breast pain
-                </label>
-                <label>
-                  <input 
-                    type="checkbox" 
-                    checked={selectedChanges.discharge} 
-                    onChange={() => handleCheckboxChange('discharge')}
-                  /> Nipple discharge
-                </label>
-                <label>
-                  <input 
-                    type="checkbox" 
-                    checked={selectedChanges.nipple} 
-                    onChange={() => handleCheckboxChange('nipple')}
-                  /> Nipple position change
-                </label>
-                <label>
-                  <input 
-                    type="checkbox" 
-                    checked={selectedChanges.skin} 
-                    onChange={() => handleCheckboxChange('skin')}
-                  /> Skin dimpling or redness
-                </label>
-                <label>
-                  <input 
-                    type="checkbox" 
-                    checked={selectedChanges.swelling} 
-                    onChange={() => handleCheckboxChange('swelling')}
-                  /> Swelling
-                </label>
-                <label>
-                  <input 
-                    type="checkbox" 
-                    checked={selectedChanges.shape} 
-                    onChange={() => handleCheckboxChange('shape')}
-                  /> Change in breast shape or size
-                </label>
-                <label>
-                  <input 
-                    type="checkbox" 
-                    checked={selectedChanges.other} 
-                    onChange={() => handleCheckboxChange('other')}
-                  /> Other
-                </label>
-              </div>
-
-              {/* Dynamic Warning Message */}
-              <div className={`self-support-msg ${hasChangesNoticed ? 'show' : ''}`}>
-                Some changes are not cancer, but it is important to have unusual changes checked by a healthcare provider.
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className="self-field">
-              <label htmlFor="notes-area">Notes</label>
+              <label htmlFor="general-notes">Would you like to add any general notes?</label>
               <textarea 
-                id="notes-area"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Write anything you noticed or want to remember."
+                id="general-notes"
+                value={generalNotes}
+                onChange={(e) => setGeneralNotes(e.target.value)}
+                placeholder="Write anything else you noticed or want to remember overall."
+                style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--bg)', fontSize: '14px', fontFamily: 'inherit' }}
               />
             </div>
 
@@ -670,41 +450,40 @@ const SelfExam = () => {
             <div className="self-field">
               <label>Would you like to set a reminder for next month?</label>
               <div className="self-choice-row">
-                <label className={`self-choice ${setReminderState === 'Yes' ? 'active' : ''}`}>
-                  <input 
-                    type="radio" 
-                    name="reminderState" 
-                    value="Yes" 
-                    checked={setReminderState === 'Yes'}
-                    onChange={() => setSetReminderState('Yes')}
-                  /> Yes
+                <label className={`self-choice ${reminderRequested === 'Yes' ? 'active' : ''}`}>
+                  <input type="radio" value="Yes" checked={reminderRequested === 'Yes'} onChange={() => setReminderRequested('Yes')} /> Yes
                 </label>
-                <label className={`self-choice ${setReminderState === 'No' ? 'active' : ''}`}>
-                  <input 
-                    type="radio" 
-                    name="reminderState" 
-                    value="No" 
-                    checked={setReminderState === 'No'}
-                    onChange={() => setSetReminderState('No')}
-                  /> No
+                <label className={`self-choice ${reminderRequested === 'No' ? 'active' : ''}`}>
+                  <input type="radio" value="No" checked={reminderRequested === 'No'} onChange={() => setReminderRequested('No')} /> No
                 </label>
               </div>
             </div>
 
+            {/* Clinic Request */}
+            <div className="self-field">
+              <label>Would you like to find a nearby health facility?</label>
+              <div className="self-choice-row">
+                <label className={`self-choice ${clinicDirectoryRequested === true ? 'active' : ''}`}>
+                  <input type="radio" checked={clinicDirectoryRequested === true} onChange={() => setClinicDirectoryRequested(true)} /> Yes, take me to directory
+                </label>
+                <label className={`self-choice ${clinicDirectoryRequested === false ? 'active' : ''}`}>
+                  <input type="radio" checked={clinicDirectoryRequested === false} onChange={() => setClinicDirectoryRequested(false)} /> No thanks
+                </label>
+              </div>
+            </div>
+
+            <div style={{ padding: '16px', background: 'var(--paper-deep)', borderLeft: '4px solid var(--oxblood)', fontSize: '13px', lineHeight: '1.5', marginTop: '30px', borderRadius: '0 8px 8px 0' }}>
+              <b>EmpowerHer does not provide diagnosis.</b> If you notice a lump, nipple discharge, unusual pain, swelling, skin changes, or any change that worries you, please visit a qualified healthcare provider.
+            </div>
+
             {/* Action buttons */}
-            <div className="self-form-actions">
+            <div className="self-form-actions" style={{ marginTop: '24px' }}>
+              <button type="button" className="btn-ghost" onClick={handlePrevStep} disabled={loadingState}>
+                ← Back
+              </button>
               <Button type="submit" variant="primary" disabled={loadingState}>
                 {loadingState ? 'Saving...' : 'Save to History Log'}
               </Button>
-              <Button type="button" variant="secondary" onClick={() => navigate('/clinics')}>
-                Find a Clinic
-              </Button>
-            </div>
-
-            <div style={{ textAlign: 'center', marginTop: '16px' }}>
-              <button type="button" className="btn-ghost" onClick={() => navigate('/dashboard')}>
-                Cancel — back to Dashboard
-              </button>
             </div>
           </form>
         </div>

@@ -21,10 +21,16 @@ export const createSelfCheckRecord = async (userId, recordData) => {
     userId,
     date: recordData.date,
     completedGuide: recordData.completedGuide,
-    sideChecked: recordData.sideChecked,
-    feltNormal: recordData.feltNormal,
+    // New step-by-step format
+    stepResponses: recordData.stepResponses || null,
+    generalNotes: recordData.generalNotes || '',
+    clinicDirectoryRequested: recordData.clinicDirectoryRequested || false,
+    // Legacy format
+    sideChecked: recordData.sideChecked || null,
+    feltNormal: recordData.feltNormal || null,
     changesNoticed: recordData.changesNoticed || [],
     notes: recordData.notes || '',
+    // Common
     reminderRequested: recordData.reminderRequested,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
@@ -63,13 +69,20 @@ export const updateSelfCheckRecord = async (recordId, recordData) => {
   const updates = {
     date: recordData.date,
     completedGuide: recordData.completedGuide,
-    sideChecked: recordData.sideChecked,
-    feltNormal: recordData.feltNormal,
-    changesNoticed: recordData.changesNoticed || [],
-    notes: recordData.notes || '',
     reminderRequested: recordData.reminderRequested,
     updatedAt: serverTimestamp()
   };
+
+  // Conditionally add new format fields if present
+  if (recordData.stepResponses !== undefined) updates.stepResponses = recordData.stepResponses;
+  if (recordData.generalNotes !== undefined) updates.generalNotes = recordData.generalNotes;
+  if (recordData.clinicDirectoryRequested !== undefined) updates.clinicDirectoryRequested = recordData.clinicDirectoryRequested;
+
+  // Conditionally add legacy format fields if present
+  if (recordData.sideChecked !== undefined) updates.sideChecked = recordData.sideChecked;
+  if (recordData.feltNormal !== undefined) updates.feltNormal = recordData.feltNormal;
+  if (recordData.changesNoticed !== undefined) updates.changesNoticed = recordData.changesNoticed;
+  if (recordData.notes !== undefined) updates.notes = recordData.notes;
   await updateDoc(docRef, updates);
 };
 
