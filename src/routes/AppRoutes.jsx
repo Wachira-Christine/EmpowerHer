@@ -2,14 +2,14 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 
 import Layout from '../components/layout/Layout';
-import UserMobileLayout from '../components/layout/UserMobileLayout';
+import UserLayout from '../components/layout/UserLayout';
 import AdminLayout from '../components/layout/AdminLayout';
 
 // Public Pages
 import Landing from '../pages/Landing';
 import Login from '../pages/Auth/Login';
 import Register from '../pages/Auth/Register';
-import AdminLogin from '../pages/Auth/AdminLogin';
+import VerifyEmail from '../pages/Auth/VerifyEmail';
 import NotFound from '../pages/NotFound';
 
 // User Pages
@@ -47,10 +47,10 @@ const AppRoutes = () => {
         {/* Authentication Flows */}
         <Route path="login" element={<Login />} />
         <Route path="register" element={<Register />} />
-        <Route path="admin/login" element={<AdminLogin />} />
+        <Route path="verify-email" element={<VerifyEmail />} />
         
-        {/* User Workspace Module (Under UserMobileLayout) */}
-        <Route element={<ProtectedRoute><UserMobileLayout /></ProtectedRoute>}>
+        {/* User Workspace Module (Under UserLayout) */}
+        <Route element={<ProtectedRoute><UserLayout /></ProtectedRoute>}>
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="education" element={<Education />} />
           <Route path="education/article" element={<ArticleDetail />} />

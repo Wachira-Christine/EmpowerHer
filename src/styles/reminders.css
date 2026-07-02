@@ -8,7 +8,7 @@
 
 .layout {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 340px 1fr;
   gap: 24px;
   align-items: start;
 }
@@ -290,4 +290,9 @@ textarea {
   flex: 1;
 }
 
-/* Responsive Overrides Applied for Mobile Shell */
+/* Responsive Mobile Sizing */
+@media (max-width: 768px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}

@@ -111,6 +111,34 @@
   pointer-events: none;
 }
 
+.password-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  z-index: 2;
+  color: var(--oxblood);
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  min-height: 30px;
+  pointer-events: auto;
+}
+
+.password-toggle:hover {
+  opacity: 1;
+}
+
+.password-toggle svg,
+.password-toggle i {
+  pointer-events: none;
+}
+
 .auth-row-between {
   display: flex;
   align-items: center;

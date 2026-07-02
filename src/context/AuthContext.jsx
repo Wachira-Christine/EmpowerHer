@@ -5,7 +5,9 @@ import {
   registerUser, 
   loginUser, 
   logoutUser, 
-  getUserProfile 
+  getUserProfile,
+  loginWithGoogle,
+  resendVerification
 } from '../services/authService';
 
 const AuthContext = createContext(null);
@@ -26,6 +28,8 @@ export const AuthProvider = ({ children }) => {
               email: firebaseUser.email,
               displayName: profile.fullName || firebaseUser.displayName,
               role: profile.role || 'user',
+              authProvider: profile.authProvider || 'email',
+              emailVerified: firebaseUser.emailVerified,
               accountStatus: profile.accountStatus || 'active',
               ...profile
             });
@@ -36,6 +40,8 @@ export const AuthProvider = ({ children }) => {
               email: firebaseUser.email,
               displayName: firebaseUser.displayName,
               role: 'user',
+              authProvider: 'email',
+              emailVerified: firebaseUser.emailVerified,
               accountStatus: 'active'
             });
           }
@@ -46,6 +52,8 @@ export const AuthProvider = ({ children }) => {
             email: firebaseUser.email,
             displayName: firebaseUser.displayName,
             role: 'user',
+            authProvider: 'email',
+            emailVerified: firebaseUser.emailVerified,
             accountStatus: 'active'
           });
         }
@@ -67,6 +75,8 @@ export const AuthProvider = ({ children }) => {
         email: response.user.email,
         displayName: response.profile.fullName,
         role: response.profile.role,
+        authProvider: response.profile.authProvider || 'email',
+        emailVerified: response.user.emailVerified,
         accountStatus: response.profile.accountStatus,
         ...response.profile
       });
@@ -85,6 +95,8 @@ export const AuthProvider = ({ children }) => {
         email: response.user.email,
         displayName: response.profile.fullName,
         role: response.profile.role,
+        authProvider: response.profile.authProvider || 'email',
+        emailVerified: response.user.emailVerified,
         accountStatus: response.profile.accountStatus,
         ...response.profile
       });
@@ -104,8 +116,39 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const googleLogin = async () => {
+    setLoading(true);
+    try {
+      const response = await loginWithGoogle();
+      setUser({
+        uid: response.user.uid,
+        email: response.user.email,
+        displayName: response.profile.fullName,
+        role: response.profile.role,
+        authProvider: response.profile.authProvider || 'google',
+        emailVerified: response.user.emailVerified,
+        accountStatus: response.profile.accountStatus,
+        ...response.profile
+      });
+      return response;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const value = {
+    user,
+    loading,
+    login,
+    register,
+    logout,
+    googleLogin,
+    resendVerification,
+    isAuthenticated: !!user
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

@@ -163,6 +163,11 @@
 }
 
 /* Article Detail Page Specific Styles */
+.article-page {
+  max-width: 820px;
+  margin: 0 auto;
+}
+
 .edu-article-back {
   display: inline-flex;
   align-items: center;

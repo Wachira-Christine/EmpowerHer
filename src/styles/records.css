@@ -59,7 +59,7 @@
 /* summary cards */
 .summary-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
   border: 1px solid var(--line);
   margin-bottom: 40px;
 }
@@ -531,17 +531,25 @@ textarea {
   flex: 1;
 }
 
-/* Responsive Overrides Removed for Mobile App Shell */
-.detail-card,
-.form-card {
-  padding: 22px 18px 6px;
-  max-width: none;
-}
-.form-actions,
-.detail-actions {
-  flex-direction: column;
-}
-.form-actions button,
-.detail-actions button {
-  width: 100%;
+/* Responsive Sizing */
+@media (max-width: 768px) {
+  .summary-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .summary-row .sum-card:nth-child(2n) {
+    border-right: none;
+  }
+  .detail-card,
+  .form-card {
+    padding: 22px 18px 6px;
+    max-width: none;
+  }
+  .form-actions,
+  .detail-actions {
+    flex-direction: column;
+  }
+  .form-actions button,
+  .detail-actions button {
+    width: 100%;
+  }
 }

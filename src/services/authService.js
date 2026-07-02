@@ -1,14 +1,20 @@
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
-  signOut 
+  signOut,
+  GoogleAuthProvider,
+  signInWithPopup,
+  sendEmailVerification
 } from 'firebase/auth';
 import { 
   doc, 
   setDoc, 
-  getDoc 
+  getDoc,
+  serverTimestamp
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/firebase';
+
+const googleProvider = new GoogleAuthProvider();
 
 // Helper to retrieve user profile document from Firestore
 export const getUserProfile = async (uid) => {
@@ -26,17 +32,23 @@ export const registerUser = async (name, email, password, phoneNumber = '') => {
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;
 
-  // 2. Prepare user profile data
+  // 2. Send email verification
+  await sendEmailVerification(user);
+
+  // 3. Prepare user profile data
   const userProfile = {
     fullName: name,
     email: email,
     phoneNumber: phoneNumber || '',
     role: 'user',
+    authProvider: 'email',
+    emailVerified: false,
     accountStatus: 'active',
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   };
 
-  // 3. Save profile to Firestore
+  // 4. Save profile to Firestore
   await setDoc(doc(db, 'users', user.uid), userProfile);
 
   return { user, profile: userProfile };
@@ -64,4 +76,40 @@ export const loginUser = async (email, password) => {
 // Logout user
 export const logoutUser = async () => {
   await signOut(auth);
+};
+
+// Resend verification email
+export const resendVerification = async (user) => {
+  if (user) {
+    await sendEmailVerification(user);
+  }
+};
+
+// Login with Google
+export const loginWithGoogle = async () => {
+  const userCredential = await signInWithPopup(auth, googleProvider);
+  const user = userCredential.user;
+
+  let profile = await getUserProfile(user.uid);
+  
+  if (!profile) {
+    // New user from Google
+    profile = {
+      fullName: user.displayName || 'Google User',
+      email: user.email,
+      phoneNumber: user.phoneNumber || '',
+      role: 'user',
+      authProvider: 'google',
+      emailVerified: true,
+      accountStatus: 'active',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    await setDoc(doc(db, 'users', user.uid), profile);
+  } else if (profile.accountStatus !== 'active') {
+    await signOut(auth);
+    throw new Error('This account is not active.');
+  }
+
+  return { user, profile };
 };

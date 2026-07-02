@@ -98,7 +98,7 @@ const ArticleDetail = () => {
   }
 
   return (
-    <div style={{ maxWidth: '680px' }}>
+    <div className="article-page">
       {/* Back to Topics */}
       <Link to="/education" className="edu-article-back">
         Back to topics

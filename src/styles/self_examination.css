@@ -42,7 +42,7 @@
 /* Video Grid Layout */
 .video-tutorial-container {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1.2fr 0.8fr;
   gap: 24px;
   margin-bottom: 40px;
 }
@@ -272,7 +272,7 @@
 
 .self-checklist {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 .self-checklist label {
@@ -357,16 +357,24 @@
   margin: 0 0 12px;
 }
 
-/* Responsive Overrides Applied for Mobile Shell */
-.guided-steps-card {
-  padding: 20px;
-}
-.self-form-card {
-  padding: 24px 20px;
-}
-.self-form-actions {
-  flex-direction: column;
-}
-.self-form-actions button, .self-form-actions a {
-  width: 100%;
+/* Responsive Mobile Sizing */
+@media (max-width: 768px) {
+  .video-tutorial-container {
+    grid-template-columns: 1fr;
+  }
+  .self-checklist {
+    grid-template-columns: 1fr;
+  }
+  .guided-steps-card {
+    padding: 20px;
+  }
+  .self-form-card {
+    padding: 24px 20px;
+  }
+  .self-form-actions {
+    flex-direction: column;
+  }
+  .self-form-actions button, .self-form-actions a {
+    width: 100%;
+  }
 }

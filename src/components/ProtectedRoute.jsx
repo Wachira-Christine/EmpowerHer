@@ -32,6 +32,10 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/admin" replace />;
   }
 
+  if (user.authProvider === 'email' && !user.emailVerified) {
+    return <Navigate to="/verify-email" replace />;
+  }
+
   return children;
 };
 
